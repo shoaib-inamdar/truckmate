@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart';
+import 'package:truckmate/main.dart' hide AppColors;
 import '../../providers/email_otp_provider.dart';
 // import '../../utils/app_colors.dart';
 import '../../utils/validators.dart';

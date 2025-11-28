@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart';
+import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/providers/auth_provider.dart';
 // import 'package:truckmate/constants/colors.dart' as AppColors;
 

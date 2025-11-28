@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart';
+import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/book_transport.dart';
 import '../../providers/email_otp_provider.dart';
 // import '../../utils/app_colors.dart';

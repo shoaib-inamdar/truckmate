@@ -1,107 +1,128 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:truckmate/pages/book_transport.dart';
+import 'package:truckmate/pages/email_otp_login_screen.dart';
+import 'package:truckmate/pages/login_screen.dart';
+import 'package:truckmate/pages/homepage.dart';
+// import 'package:truckmate/pages/phone_login_screen.dart';
+import 'package:truckmate/providers/auth_provider.dart';
+import 'package:truckmate/providers/email_otp_provider.dart';
+// import 'screens/login_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: AppColors.darkLight,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => EmailOTPProvider()),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+
+class AppColors {
+  static const Color primary = Color(0xFFC6FF00); // Lime green
+  static const Color primaryDark = Color(0xFF9ACC00);
+  static const Color secondary = Color(0xFF7A8E99); // Gray-blue
+  static const Color dark = Color(0xFF0A0E27); // Dark navy
+  static const Color darkLight = Color(0xFF1A1F3A);
+  static const Color light = Color(0xFFFAFBFB); // Light gray
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textDark = Color(0xFF2C3E50);
+  static const Color textLight = Color(0xFF6C757D);
+  static const Color success = Color(0xFF28A745);
+  static const Color warning = Color(0xFFFFC107);
+  static const Color danger = Color(0xFFDC3545);
+  static const Color lightgreen = Color(0xFF7ECF9A);
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Transport App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primaryColor: const Color(0xFFC6FF00),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+        colorScheme: ColorScheme.light(
+          primary: const Color(0xFFC6FF00),
+          secondary: const Color(0xFF7A8E99),
+          surface: const Color(0xFFFFFFFF),
+          background: const Color(0xFFF8F9FA),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFC6FF00),
+            foregroundColor: const Color(0xFF0A0E27),
+          ),
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Color(0xFF0A0E27)),
+          bodyMedium: TextStyle(color: Color(0xFF0A0E27)),
+          titleLarge: TextStyle(
+            color: Color(0xFF0A0E27),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: AuthWrapper(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        switch (authProvider.status) {
+          case AuthStatus.uninitialized:
+          case AuthStatus.loading:
+            return Scaffold(
+              backgroundColor: AppColors.white,
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Loading...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          case AuthStatus.authenticated:
+            return BookTransportScreen();
+          case AuthStatus.unauthenticated:
+            return EmailOTPLoginScreen();
+        }
+      },
     );
   }
 }

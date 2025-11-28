@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart';
+import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/book_transport.dart';
 import 'package:truckmate/pages/registeration.dart';
 // import 'package:truckmate/constants/colors.dart' as AppColors;

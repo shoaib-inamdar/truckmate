@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/pages/book_transport.dart';
-import 'package:truckmate/pages/homepage.dart';
+// import 'package:truckmate/pages/book_transport.dart';
 import '../../providers/auth_provider.dart';
 // import '../../utils/app_colors.dart';
-import '../../utils/validators.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/loading_overlay.dart';

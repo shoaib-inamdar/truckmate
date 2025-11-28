@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart';
 import 'package:truckmate/pages/admin_panel.dart';
 
 class RegistrationScreen extends StatefulWidget {
