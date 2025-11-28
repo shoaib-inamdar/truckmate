@@ -1,0 +1,970 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const TruckingApp());
+}
+
+class TruckingApp extends StatelessWidget {
+  const TruckingApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Trucking Services',
+      theme: ThemeData(
+        primarySwatch: Colors.teal,
+        scaffoldBackgroundColor: const Color(0xFF1a2b2b),
+        brightness: Brightness.dark,
+      ),
+      home: const MainNavigation(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({Key? key}) : super(key: key);
+
+  @override
+  State<MainNavigation> createState() => _MainNavigationState();
+}
+
+class _MainNavigationState extends State<MainNavigation> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const MyRequestsScreen(),
+    const ProfileScreen(),
+    const NotificationsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF1a2b2b),
+        selectedItemColor: Colors.tealAccent,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'My Requests'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifications'),
+        ],
+      ),
+    );
+  }
+}
+
+// HOME SCREEN
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        backgroundColor: const Color(0xFF1a2b2b),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.local_shipping, size: 100, color: Colors.tealAccent),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NewRequestScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.tealAccent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text('New Request', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SuggestionsScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.tealAccent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text('View Suggestions', style: TextStyle(fontSize: 18)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// NEW REQUEST SCREEN
+class NewRequestScreen extends StatefulWidget {
+  const NewRequestScreen({Key? key}) : super(key: key);
+
+  @override
+  State<NewRequestScreen> createState() => _NewRequestScreenState();
+}
+
+class _NewRequestScreenState extends State<NewRequestScreen> {
+  final _fromController = TextEditingController();
+  final _toController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _volumeController = TextEditingController();
+  String? _selectedMaterialType;
+  bool _isOpen = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a2b2b),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1a2b2b),
+        title: const Text('New Request'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildDot(true),
+                  const SizedBox(width: 8),
+                  _buildDot(false),
+                  const SizedBox(width: 8),
+                  _buildDot(false),
+                ],
+              ),
+              const SizedBox(height: 40),
+              _buildTextField('From', _fromController),
+              const SizedBox(height: 20),
+              _buildTextField('To', _toController),
+              const SizedBox(height: 20),
+              _buildTextField('Weight', _weightController, hint: 'Weight (lbs)'),
+              const SizedBox(height: 20),
+              _buildTextField('Volume', _volumeController, hint: 'Volume (cu ft)'),
+              const SizedBox(height: 20),
+              const Text('Material Type', style: TextStyle(color: Colors.white)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2d4545),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  dropdownColor: const Color(0xFF2d4545),
+                  hint: const Text('Select Material', style: TextStyle(color: Colors.grey)),
+                  value: _selectedMaterialType,
+                  items: ['Electronics', 'Furniture', 'Food', 'Clothing', 'Other']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedMaterialType = value),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Open/Closed', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Switch(
+                    value: _isOpen,
+                    onChanged: (value) => setState(() => _isOpen = value),
+                    activeColor: Colors.tealAccent,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2d4545),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Back', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CheckoutScreen()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.tealAccent,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Next', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDot(bool active) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: active ? Colors.white : Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, {String? hint}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.grey),
+            filled: true,
+            fillColor: const Color(0xFF2d4545),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _fromController.dispose();
+    _toController.dispose();
+    _weightController.dispose();
+    _volumeController.dispose();
+    super.dispose();
+  }
+}
+
+// CHECKOUT SCREEN
+class CheckoutScreen extends StatelessWidget {
+  const CheckoutScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a2b2b),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1a2b2b),
+        title: const Text('Checkout'),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Booking Summary', style: TextStyle(color: Colors.grey, fontSize: 14)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Trucking Services', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 4),
+                        Text('123 Main Street, Anytown, USA', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.local_shipping, size: 40, color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+              const Text('Fare Breakdown', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              _buildFareRow('Base Fare', '\$150.00'),
+              _buildFareRow('Distance Surcharge', '\$25.00'),
+              _buildFareRow('Toll Charges', '\$10.00'),
+              const SizedBox(height: 20),
+              const Divider(color: Colors.grey),
+              const SizedBox(height: 10),
+              _buildFareRow('Total', '\$185.00', isTotal: true),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const BookingConfirmationDialog(),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.tealAccent,
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Pay Advance \$92.50', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 30),
+              const Text('Payment Method', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: const [
+                    Text('Razorpay', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    Spacer(),
+                    Icon(Icons.radio_button_checked, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFareRow(String label, String amount, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: isTotal ? Colors.white : Colors.grey,
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            amount,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// BOOKING CONFIRMATION DIALOG
+class BookingConfirmationDialog extends StatelessWidget {
+  const BookingConfirmationDialog({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF1a2b2b),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Booking Confirmed',
+              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Your booking has been successfully placed.\nYour booking ID is #1234567890',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.tealAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Share on WhatsApp'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2d4545),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('View Booking'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// NOTIFICATIONS SCREEN
+class NotificationsScreen extends StatefulWidget {
+  const NotificationsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a2b2b),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1a2b2b),
+        title: const Text('Notifications'),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'In-App'),
+            Tab(text: 'WhatsApp'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildNotificationsList(),
+          const Center(child: Text('WhatsApp Notifications', style: TextStyle(color: Colors.grey))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationsList() {
+    final notifications = [
+      {'icon': Icons.local_shipping, 'title': 'Request Accepted', 'desc': 'Your request for a truck from Mumbai to Delhi has been accepted.'},
+      {'icon': Icons.currency_rupee, 'title': 'Payment Successful', 'desc': 'Your payment for booking #12345 has been processed successfully.'},
+      {'icon': Icons.calendar_today, 'title': 'Booking Confirmation', 'desc': 'Your booking #67890 is scheduled for tomorrow at 10:00 AM.'},
+      {'icon': Icons.local_shipping, 'title': 'Request Accepted', 'desc': 'Your request for a truck from Bangalore to Chennai has been accepted.'},
+      {'icon': Icons.currency_rupee, 'title': 'Payment Successful', 'desc': 'Your payment for booking #54321 has been processed successfully.'},
+      {'icon': Icons.calendar_today, 'title': 'Booking Confirmation', 'desc': 'Your booking #09876 is scheduled for tomorrow at 2:00 PM.'},
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: notifications.length,
+      itemBuilder: (context, index) {
+        final notif = notifications[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2d4545),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(notif['icon'] as IconData, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notif['title'] as String,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      notif['desc'] as String,
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+}
+
+// SUGGESTIONS SCREEN
+class SuggestionsScreen extends StatefulWidget {
+  const SuggestionsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SuggestionsScreen> createState() => _SuggestionsScreenState();
+}
+
+class _SuggestionsScreenState extends State<SuggestionsScreen> {
+  String _selectedFilter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a2b2b),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1a2b2b),
+        title: const Text('Suggestions'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                filled: true,
+                fillColor: const Color(0xFF2d4545),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                _buildFilterChip('All'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Pending'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Offered'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildVehicleCard(
+                  'Truck',
+                  'Alex',
+                  '10 tons',
+                  '\$500',
+                  '100 km / 2 hours',
+                  'Pending',
+                  Icons.local_shipping,
+                ),
+                _buildVehicleCard(
+                  'Van',
+                  'Ben',
+                  '2 tons',
+                  '\$200',
+                  '50 km / 1 hour',
+                  'Offered',
+                  Icons.airport_shuttle,
+                ),
+                _buildVehicleCard(
+                  'Motorcycle',
+                  'Chris',
+                  '0.5 tons',
+                  '\$50',
+                  '10 km / 15 minutes',
+                  'Rejected',
+                  Icons.two_wheeler,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label) {
+    final isSelected = _selectedFilter == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) => setState(() => _selectedFilter = label),
+      backgroundColor: const Color(0xFF2d4545),
+      selectedColor: Colors.tealAccent,
+      labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white),
+    );
+  }
+
+  Widget _buildVehicleCard(String type, String owner, String capacity, String rate, String distance, String status, IconData icon) {
+    Color statusColor = status == 'Pending'
+        ? Colors.orange
+        : status == 'Offered'
+            ? Colors.green
+            : Colors.red;
+
+    return Card(
+      color: const Color(0xFF2d4545),
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(status, style: TextStyle(color: statusColor, fontSize: 12)),
+                      Text(type, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('Owner: $owner', style: const TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.message, size: 16),
+                        label: const Text('Contact'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1a2b2b),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 40, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildDetailRow('Capacity', capacity),
+            _buildDetailRow('Offered Rate', rate),
+            _buildDetailRow('Distance/Time', distance),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const VehicleDetailsScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.tealAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1a2b2b),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(color: Colors.white)),
+        ],
+      ),
+    );
+  }
+}
+
+// VEHICLE DETAILS SCREEN
+class VehicleDetailsScreen extends StatelessWidget {
+  const VehicleDetailsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1a2b2b),
+        title: const Text('Vehicle Details'),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 250,
+              color: Colors.grey[300],
+              child: Center(
+                child: Icon(Icons.local_shipping, size: 120, color: Colors.grey[600]),
+              ),
+            ),
+            Container(
+              color: const Color(0xFF1a2b2b),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Specifications', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(child: _buildSpecItem('Capacity', '10 tons')),
+                      Expanded(child: _buildSpecItem('Length', '20 ft')),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: _buildSpecItem('Type', 'Open')),
+                      Expanded(child: _buildSpecItem('Status', 'Available')),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  const Text('Documents', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDocumentCard('Registration\nCertificate', Icons.description),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildDocumentCard('Insurance', Icons.local_hospital),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  const Text('Location', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.blue[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text('Mumbai Map', style: TextStyle(fontSize: 18)),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text('Driver', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildDriverCard('Rajesh Kumar', Icons.phone),
+                  const SizedBox(height: 12),
+                  _buildDriverCard('Rajesh Kumar', Icons.message),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.tealAccent,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Book this vehicle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 16)),
+      ],
+    );
+  }
+
+  Widget _buildDocumentCard(String title, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.blue[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40),
+          const SizedBox(height: 8),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverCard(String name, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2d4545),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 25,
+            backgroundColor: Colors.grey,
+            child: Icon(Icons.person, size: 30),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text('Driver', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: Icon(icon, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// MY REQUESTS SCREEN
+class MyRequestsScreen extends StatelessWidget {
+  const MyRequestsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Requests'),
+        backgroundColor: const Color(0xFF1a2b2b),
+      ),
+      body: const Center(
+        child: Text('My Requests Screen', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+}
+
+// PROFILE SCREEN
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        backgroundColor: const Color(0xFF1a2b2b),
+      ),
+      body: const Center(
+        child: Text('Profile Screen', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+}

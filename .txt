@@ -1,0 +1,718 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const LogisticsApp());
+}
+
+class LogisticsApp extends StatelessWidget {
+  const LogisticsApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Logistics App',
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFF1A2526),
+        primaryColor: const Color(0xFF2DD4BF),
+        fontFamily: 'Inter',
+      ),
+      home: const LoginScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+// 1. Login Screen
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.06;
+
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: size.height * 0.05),
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Icon(
+                    Icons.accessibility_new,
+                    color: Colors.white,
+                    size: size.width * 0.08,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.08),
+                Text(
+                  'Welcome back',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size.width * 0.1,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.05),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D4243),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Email or Phone',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: size.width * 0.045,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: padding,
+                        vertical: size.height * 0.025,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: size.height * 0.02),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D4243),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Password',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: size.width * 0.045,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: padding,
+                        vertical: size.height * 0.025,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: size.height * 0.02),
+                Text(
+                  'Forgot password?',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    decoration: TextDecoration.underline,
+                    fontSize: size.width * 0.04,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.04),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2DD4BF),
+                      padding: EdgeInsets.symmetric(vertical: size.height * 0.022),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Log In',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: size.width * 0.045,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: size.height * 0.02),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D4243),
+                      padding: EdgeInsets.symmetric(vertical: size.height * 0.022),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Sign Up',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size.width * 0.045,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: size.height * 0.15),
+                Center(
+                  child: Text(
+                    'By continuing, you agree to our Terms of Service and\nPrivacy Policy',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: size.width * 0.032,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 2. Home Screen
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.04;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(padding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CircleAvatar(
+                    radius: size.width * 0.06,
+                    backgroundColor: Colors.grey[700],
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  Icon(Icons.notifications_outlined, color: Colors.white, size: size.width * 0.07),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: padding),
+              child: Row(
+                children: [
+                  _buildFilterChip('Vehicle Type', size),
+                  SizedBox(width: padding),
+                  _buildFilterChip('Capacity', size),
+                  SizedBox(width: padding),
+                  _buildFilterChip('Route', size),
+                ],
+              ),
+            ),
+            SizedBox(height: size.height * 0.02),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: padding),
+                children: [
+                  _buildDeliveryCard(
+                    status: 'In Transit',
+                    from: 'San Francisco',
+                    to: 'Los Angeles',
+                    weight: '2000 lbs',
+                    eta: '2h 30m',
+                    vehicleType: 'pickup',
+                    size: size,
+                  ),
+                  SizedBox(height: size.height * 0.02),
+                  _buildDeliveryCard(
+                    status: 'Completed',
+                    from: 'New York',
+                    to: 'Chicago',
+                    weight: '1500 lbs',
+                    eta: null,
+                    isDelivered: true,
+                    vehicleType: 'pickup',
+                    size: size,
+                  ),
+                  SizedBox(height: size.height * 0.02),
+                  _buildDeliveryCard(
+                    status: 'Scheduled',
+                    from: 'Miami',
+                    to: 'Atlanta',
+                    weight: '2500 lbs',
+                    eta: '3h 45m',
+                    vehicleType: 'truck',
+                    size: size,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const VerificationScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF2DD4BF),
+        child: const Icon(Icons.add, color: Colors.black),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF1A2526),
+        selectedItemColor: const Color(0xFF2DD4BF),
+        unselectedItemColor: Colors.white.withOpacity(0.5),
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'My Requests'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifications'),
+        ],
+        onTap: (index) {
+          if (index == 0) {
+            // Already on home
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VehiclesScreen()),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, Size size) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.04,
+        vertical: size.height * 0.012,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D4243),
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.white, fontSize: size.width * 0.035),
+          ),
+          SizedBox(width: size.width * 0.015),
+          Icon(Icons.keyboard_arrow_down, color: Colors.white, size: size.width * 0.045),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryCard({
+    required String status,
+    required String from,
+    required String to,
+    required String weight,
+    String? eta,
+    bool isDelivered = false,
+    required String vehicleType,
+    required Size size,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(size.width * 0.04),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D4243),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: size.width * 0.035,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.01),
+                Text(
+                  '$from → $to',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size.width * 0.05,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.005),
+                Text(
+                  'Weight: $weight',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: size.width * 0.035,
+                  ),
+                ),
+                if (eta != null) ...[
+                  SizedBox(height: size.height * 0.015),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.03,
+                      vertical: size.height * 0.008,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2526),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'ETA: $eta',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size.width * 0.032,
+                      ),
+                    ),
+                  ),
+                ],
+                if (isDelivered) ...[
+                  SizedBox(height: size.height * 0.015),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.03,
+                      vertical: size.height * 0.008,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2526),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Delivered',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size.width * 0.032,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Container(
+            width: size.width * 0.25,
+            height: size.width * 0.25,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              vehicleType == 'truck' ? Icons.local_shipping : Icons.local_shipping_outlined,
+              size: size.width * 0.12,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 3. Verification Screen
+class VerificationScreen extends StatefulWidget {
+  const VerificationScreen({Key? key}) : super(key: key);
+
+  @override
+  State<VerificationScreen> createState() => _VerificationScreenState();
+}
+
+class _VerificationScreenState extends State<VerificationScreen> {
+  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.06;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Verification',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size.width * 0.05,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        child: Column(
+          children: [
+            SizedBox(height: size.height * 0.05),
+            Text(
+              'Enter the code',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size.width * 0.08,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: size.height * 0.02),
+            Text(
+              "We've sent a verification code to your phone\nnumber",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: size.width * 0.04,
+              ),
+            ),
+            SizedBox(height: size.height * 0.05),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(6, (index) {
+                return Container(
+                  width: size.width * 0.12,
+                  height: size.width * 0.12,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D4243),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _controllers[index],
+                    focusNode: _focusNodes[index],
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    maxLength: 1,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: size.width * 0.05,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    onChanged: (value) {
+                      if (value.isNotEmpty && index < 5) {
+                        _focusNodes[index + 1].requestFocus();
+                      } else if (value.isEmpty && index > 0) {
+                        _focusNodes[index - 1].requestFocus();
+                      }
+                    },
+                  ),
+                );
+              }),
+            ),
+            SizedBox(height: size.height * 0.03),
+            Text(
+              'OTP expires in 5 minutes',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: size.width * 0.035,
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2DD4BF),
+                  padding: EdgeInsets.symmetric(vertical: size.height * 0.02),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Verify',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: size.width * 0.045,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: size.height * 0.02),
+            TextButton(
+              onPressed: () {},
+              child: Text(
+                'Resend Code',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size.width * 0.04,
+                ),
+              ),
+            ),
+            SizedBox(height: size.height * 0.05),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 4. Vehicles Screen
+class VehiclesScreen extends StatelessWidget {
+  const VehiclesScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final padding = size.width * 0.04;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Vehicles',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size.width * 0.05,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.add, color: Colors.white, size: size.width * 0.07),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: EdgeInsets.all(padding),
+        children: [
+          _buildVehicleCard(
+            status: 'Verified',
+            type: 'Truck',
+            capacity: '10 tons',
+            statusColor: Colors.green,
+            size: size,
+          ),
+          SizedBox(height: size.height * 0.02),
+          _buildVehicleCard(
+            status: 'Pending',
+            type: 'Van',
+            capacity: '2 tons',
+            statusColor: Colors.orange,
+            size: size,
+          ),
+          SizedBox(height: size.height * 0.02),
+          _buildVehicleCard(
+            status: 'Rejected',
+            type: 'Motorcycle',
+            capacity: '0.1 tons',
+            statusColor: Colors.red,
+            size: size,
+          ),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF1A2526),
+        selectedItemColor: const Color(0xFF2DD4BF),
+        unselectedItemColor: Colors.white.withOpacity(0.5),
+        currentIndex: 0,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Vehicles'),
+          BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: 'Earnings'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleCard({
+    required String status,
+    required String type,
+    required String capacity,
+    required Color statusColor,
+    required Size size,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(size.width * 0.04),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D4243),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: size.width * 0.035,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.01),
+                Text(
+                  type,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size.width * 0.05,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: size.height * 0.005),
+                Text(
+                  'Capacity: $capacity',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: size.width * 0.035,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: size.width * 0.25,
+            height: size.width * 0.25,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              type == 'Motorcycle' ? Icons.two_wheeler : Icons.local_shipping,
+              size: size.width * 0.12,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
