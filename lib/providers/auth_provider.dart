@@ -1,12 +1,13 @@
-import 'package:appwrite/models.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 enum AuthStatus { uninitialized, authenticated, unauthenticated, loading }
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
+  final UserService _userService = UserService();
 
   AuthStatus _status = AuthStatus.uninitialized;
   UserModel? _user;
@@ -31,7 +32,7 @@ class AuthProvider with ChangeNotifier {
       final isLoggedIn = await _authService.isLoggedIn();
 
       if (isLoggedIn) {
-        _user = await _authService.getCurrentUser();
+        _user = await _userService.getCurrentUserWithProfile();
         _status = AuthStatus.authenticated;
       } else {
         _status = AuthStatus.unauthenticated;
@@ -60,6 +61,18 @@ class AuthProvider with ChangeNotifier {
         name: name,
       );
 
+      // Create user profile in database
+      if (_user != null) {
+        await _userService.createOrUpdateUserProfile(
+          userId: _user!.id,
+          email: _user!.email,
+          name: name,
+        );
+        
+        // Refresh user data to get profile info
+        _user = await _userService.getCurrentUserWithProfile();
+      }
+
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -80,12 +93,79 @@ class AuthProvider with ChangeNotifier {
 
       _user = await _authService.login(email: email, password: password);
 
+      // Get user profile from database
+      if (_user != null) {
+        _user = await _userService.getCurrentUserWithProfile();
+      }
+
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
     } catch (e) {
       _status = AuthStatus.unauthenticated;
       _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Set user after email OTP verification
+  Future<void> setUserAfterOTP(UserModel user) async {
+    try {
+      _user = user;
+      
+      // Try to get profile from database
+      final profile = await _userService.getUserProfile(user.id);
+      
+      if (profile != null) {
+        _user = profile;
+      } else {
+        // Create basic profile
+        await _userService.createOrUpdateUserProfile(
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        );
+        _user = await _userService.getCurrentUserWithProfile();
+      }
+
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  // Update user profile
+  Future<bool> updateUserProfile({
+    required String name,
+    required String phone,
+    required String address,
+  }) async {
+    if (_user == null) {
+      _errorMessage = 'No user logged in';
+      return false;
+    }
+
+    try {
+      _status = AuthStatus.loading;
+      notifyListeners();
+
+      _user = await _userService.createOrUpdateUserProfile(
+        userId: _user!.id,
+        email: _user!.email,
+        name: name,
+        phone: phone,
+        address: address,
+      );
+
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _status = AuthStatus.authenticated;
       notifyListeners();
       return false;
     }
@@ -108,7 +188,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       print('AuthProvider: State cleared, status is now: $_status');
     } catch (e) {
-      // For logout, we still want to clear local state even if logout fails
       print('Logout error: $e');
       _user = null;
       _status = AuthStatus.unauthenticated;
@@ -131,7 +210,7 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      _status = AuthStatus.authenticated; // Keep authenticated
+      _status = AuthStatus.authenticated;
       notifyListeners();
       return false;
     }
@@ -146,7 +225,7 @@ class AuthProvider with ChangeNotifier {
   // Refresh user data
   Future<void> refreshUser() async {
     try {
-      _user = await _authService.getCurrentUser();
+      _user = await _userService.getCurrentUserWithProfile();
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();

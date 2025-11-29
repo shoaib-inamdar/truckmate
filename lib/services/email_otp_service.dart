@@ -1,19 +1,16 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
+import 'package:truckmate/services/appwrite_service.dart';
 import '../config/appwrite_config.dart';
 import '../models/user_model.dart';
+// import '../services/appwrite_service.dart';
 
 class EmailOTPService {
-  late final Client _client;
+  final _appwriteService = AppwriteService();
   late final Account _account;
 
   EmailOTPService() {
-    _client = Client()
-        .setEndpoint(AppwriteConfig.endpoint)
-        .setProject(AppwriteConfig.projectId)
-        .setSelfSigned(status: true);
-
-    _account = Account(_client);
+    _account = _appwriteService.account;
   }
 
   // Send OTP to email
@@ -21,7 +18,6 @@ class EmailOTPService {
     try {
       print('Sending OTP to email: $email');
 
-      // Create email token directly (this will send OTP to email)
       final token = await _account.createEmailToken(
         userId: ID.unique(),
         email: email,
@@ -36,8 +32,9 @@ class EmailOTPService {
       print('Send OTP general error: ${e.toString()}');
       throw 'Failed to send OTP: ${e.toString()}';
     }
-  } // Verify Email OTP
+  }
 
+  // Verify Email OTP
   Future<UserModel> verifyEmailOTP({
     required String userId,
     required String secret,

@@ -3,12 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/pages/book_transport.dart';
 import 'package:truckmate/pages/email_otp_login_screen.dart';
-import 'package:truckmate/pages/login_screen.dart';
-import 'package:truckmate/pages/homepage.dart';
-// import 'package:truckmate/pages/phone_login_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/email_otp_provider.dart';
-// import 'screens/login_screen.dart';
+import 'package:truckmate/providers/booking_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +21,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => EmailOTPProvider()),
+        ChangeNotifierProvider(create: (_) => BookingProvider()),
       ],
       child: MyApp(),
     ),
@@ -31,12 +29,12 @@ void main() {
 }
 
 class AppColors {
-  static const Color primary = Color(0xFFC6FF00); // Lime green
+  static const Color primary = Color(0xFFC6FF00);
   static const Color primaryDark = Color(0xFF9ACC00);
-  static const Color secondary = Color(0xFF7A8E99); // Gray-blue
-  static const Color dark = Color(0xFF0A0E27); // Dark navy
+  static const Color secondary = Color(0xFF7A8E99);
+  static const Color dark = Color(0xFF0A0E27);
   static const Color darkLight = Color(0xFF1A1F3A);
-  static const Color light = Color(0xFFFAFBFB); // Light gray
+  static const Color light = Color(0xFFFAFBFB);
   static const Color white = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF2C3E50);
   static const Color textLight = Color(0xFF6C757D);

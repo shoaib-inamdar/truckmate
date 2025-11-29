@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/book_transport.dart';
+import 'package:truckmate/pages/profile_screen.dart';
+// import 'package:truckmate/pages/profile_completion_screen.dart';
 import '../../providers/email_otp_provider.dart';
-// import '../../utils/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/snackbar_helper.dart';
-// import '../home/home_screen.dart';
 
 class EmailOTPVerifyScreen extends StatefulWidget {
   final String email;
@@ -89,6 +88,11 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
       listen: false,
     );
     
+    final authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+    
     final success = await emailOTPProvider.verifyEmailOTP(otp);
 
     setState(() => _isLoading = false);
@@ -97,10 +101,26 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
 
     if (success) {
       SnackBarHelper.showSuccess(context, 'Email verified successfully!');
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) =>BookTransportScreen()),
-        (route) => false,
-      );
+      
+      // Set user in auth provider
+      if (emailOTPProvider.user != null) {
+        await authProvider.setUserAfterOTP(emailOTPProvider.user!);
+        
+        // Check if profile is complete
+        if (authProvider.user?.needsProfileCompletion() ?? true) {
+          // Navigate to profile completion
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const ProfileCompletionScreen()),
+            (route) => false,
+          );
+        } else {
+          // Navigate directly to booking page
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const BookTransportScreen()),
+            (route) => false,
+          );
+        }
+      }
     } else {
       SnackBarHelper.showError(
         context,

@@ -1,21 +1,15 @@
-import 'dart:ffi';
-
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 import '../config/appwrite_config.dart';
 import '../models/user_model.dart';
+import '../services/appwrite_service.dart';
 
 class AuthService {
-  late final Client _client;
+  final _appwriteService = AppwriteService();
   late final Account _account;
 
   AuthService() {
-    _client = Client()
-        .setEndpoint(AppwriteConfig.endpoint)
-        .setProject(AppwriteConfig.projectId)
-        .setSelfSigned(status: true); // Only for development
-
-    _account = Account(_client);
+    _account = _appwriteService.account;
   }
 
   // Register new user
@@ -23,7 +17,6 @@ class AuthService {
     required String email,
     required String password,
     required String name,
-    // required String phone,
   }) async {
     try {
       // Create the user account
@@ -33,11 +26,6 @@ class AuthService {
         password: password,
         name: name,
       );
-
-      // final token=await _account.createPhoneToken(userId: ID.unique(), phone: phone);
-      // // print("token:",token);
-      // final userId = token.userId;
-      // await _account.createSession(userId: userId,secret:'' );
 
       // Create a session (login) for the newly created user
       await _account.createEmailPasswordSession(
