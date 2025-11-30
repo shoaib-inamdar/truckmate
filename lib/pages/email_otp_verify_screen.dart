@@ -7,6 +7,8 @@ import 'package:truckmate/pages/profile_screen.dart';
 // import 'package:truckmate/pages/profile_completion_screen.dart';
 import '../../providers/email_otp_provider.dart';
 import '../../providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:truckmate/pages/seller_registration_screen.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/snackbar_helper.dart';
@@ -14,10 +16,7 @@ import '../../widgets/snackbar_helper.dart';
 class EmailOTPVerifyScreen extends StatefulWidget {
   final String email;
 
-  const EmailOTPVerifyScreen({
-    Key? key,
-    required this.email,
-  }) : super(key: key);
+  const EmailOTPVerifyScreen({Key? key, required this.email}) : super(key: key);
 
   @override
   State<EmailOTPVerifyScreen> createState() => _EmailOTPVerifyScreenState();
@@ -30,7 +29,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
     (index) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  
+
   bool _isLoading = false;
   int _resendTimer = 60;
   Timer? _timer;
@@ -58,7 +57,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
     _canResend = false;
     _resendTimer = 60;
     _timer?.cancel();
-    
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendTimer > 0) {
         setState(() => _resendTimer--);
@@ -75,7 +74,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
 
   Future<void> _handleVerifyOTP() async {
     final otp = _getOTP();
-    
+
     if (otp.length != 6) {
       SnackBarHelper.showError(context, 'Please enter complete code');
       return;
@@ -87,12 +86,9 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
       context,
       listen: false,
     );
-    
-    final authProvider = Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    );
-    
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     final success = await emailOTPProvider.verifyEmailOTP(otp);
 
     setState(() => _isLoading = false);
@@ -101,24 +97,43 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
 
     if (success) {
       SnackBarHelper.showSuccess(context, 'Email verified successfully!');
-      
+
       // Set user in auth provider
       if (emailOTPProvider.user != null) {
-        await authProvider.setUserAfterOTP(emailOTPProvider.user!);
-        
-        // Check if profile is complete
-        if (authProvider.user?.needsProfileCompletion() ?? true) {
-          // Navigate to profile completion
+        // Check startup choice (customer/seller) to set role and route accordingly
+        final prefs = await SharedPreferences.getInstance();
+        final startupChoice = prefs.getString('startup_choice');
+
+        if (startupChoice == 'seller') {
+          // Create user profile with role 'seller'
+          await authProvider.setUserAfterOTP(
+            emailOTPProvider.user!,
+            role: 'seller',
+          );
+          // Navigate to seller registration
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const ProfileCompletionScreen()),
+            MaterialPageRoute(builder: (_) => const SellerRegistrationScreen()),
             (route) => false,
           );
         } else {
-          // Navigate directly to booking page
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const BookTransportScreen()),
-            (route) => false,
-          );
+          // Default customer flow
+          await authProvider.setUserAfterOTP(emailOTPProvider.user!);
+          // Check if profile is complete
+          if (authProvider.user?.needsProfileCompletion() ?? true) {
+            // Navigate to profile completion
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => const ProfileCompletionScreen(),
+              ),
+              (route) => false,
+            );
+          } else {
+            // Navigate directly to booking page
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const BookTransportScreen()),
+              (route) => false,
+            );
+          }
         }
       }
     } else {
@@ -142,7 +157,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
       context,
       listen: false,
     );
-    
+
     final success = await emailOTPProvider.resendOTP();
 
     setState(() => _isLoading = false);
@@ -183,7 +198,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 40),
-                    
+
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
@@ -237,7 +252,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    
+
                     Text(
                       widget.email,
                       style: const TextStyle(
@@ -279,12 +294,12 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
                         GestureDetector(
                           onTap: _canResend ? _handleResendOTP : null,
                           child: Text(
-                            _canResend 
+                            _canResend
                                 ? 'Resend Code'
                                 : 'Resend in ${_resendTimer}s',
                             style: TextStyle(
-                              color: _canResend 
-                                  ? AppColors.primary 
+                              color: _canResend
+                                  ? AppColors.primary
                                   : AppColors.textLight,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -392,19 +407,12 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          const Icon(
-            Icons.check_circle,
-            size: 16,
-            color: AppColors.success,
-          ),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.success),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textDark,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppColors.textDark),
             ),
           ),
         ],

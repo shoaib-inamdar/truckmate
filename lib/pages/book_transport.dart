@@ -1,5 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:truckmate/pages/login.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:truckmate/constants/colors.dart';
@@ -291,6 +292,21 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
         foregroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout & Switch Role',
+            onPressed: () async {
+              await authProvider.logout();
+              if (!context.mounted) return;
+              // Navigate to role selection
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       backgroundColor: AppColors.light,
       body: LoadingOverlay(

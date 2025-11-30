@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/main.dart' hide AppColors;
-import 'package:truckmate/pages/book_transport.dart';
-import 'package:truckmate/pages/registeration.dart';
+// Removed unused: book_transport.dart & registeration.dart
+// Removed unused: book_transport.dart & registeration.dart
+// import 'package:truckmate/pages/seller_registration_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:truckmate/constants/colors.dart' as AppColors;
 // import 'package:truckmate/pages/book_transport.dart';
 // import 'package:truckmate/pages/registeration.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class ChooseLoginScreen extends StatelessWidget {
+  const ChooseLoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -28,27 +30,29 @@ class LoginScreen extends StatelessWidget {
                   SizedBox(height: size.height * 0.1),
                   _buildBrandHeader(),
                   SizedBox(height: size.height * 0.08),
-                  _buildLoginButton(
-                    context,
-                    'Login as\nCustomer',
-                    () => Navigator.push(
+                  _buildLoginButton(context, 'Login as\nCustomer', () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('startup_choice', 'customer');
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const BookTransportScreen()),
-                    ),
-                  ),
+                        builder: (context) => const AuthWrapper(),
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 50),
                   _buildDivider(),
                   const SizedBox(height: 50),
-                  _buildLoginButton(
-                    context,
-                    'Login as\nSeller',
-                    () => Navigator.push(
+                  _buildLoginButton(context, 'Login as\nSeller', () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('startup_choice', 'seller');
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => RegistrationScreen()),
-                    ),
-                  ),
+                        builder: (context) => const SellerAuthWrapper(),
+                      ),
+                    );
+                  }),
                   SizedBox(height: size.height * 0.1),
                 ],
               ),
@@ -127,7 +131,10 @@ class LoginScreen extends StatelessWidget {
   }
 
   Widget _buildLoginButton(
-      BuildContext context, String text, VoidCallback onTap) {
+    BuildContext context,
+    String text,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),

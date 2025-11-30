@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/main.dart' hide AppColors;
+import 'package:truckmate/pages/login.dart';
+// import 'package:truckmate/pages/login_screen.dart';
 import '../../providers/email_otp_provider.dart';
 // import '../../utils/app_colors.dart';
 import '../../utils/validators.dart';
@@ -89,7 +91,10 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                     const SizedBox(height: 40),
                     
                     IconButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () =>Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ChooseLoginScreen ()),
+        ),
                       icon: const Icon(Icons.arrow_back),
                       color: AppColors.dark,
                       iconSize: 28,

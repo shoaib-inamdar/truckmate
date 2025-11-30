@@ -16,16 +16,17 @@ class BookingService {
     _account = _appwriteService.account;
   }
 
-  // Generate unique 6-character alphanumeric booking ID
+  // Generate unique booking ID with format CBK-XXXXXXXXXX (10 random chars)
   String _generateBookingId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return String.fromCharCodes(
+    final randomString = String.fromCharCodes(
       Iterable.generate(
-        6,
+        10,
         (_) => chars.codeUnitAt(random.nextInt(chars.length)),
       ),
     );
+    return 'CBK-$randomString';
   }
 
   // Check if booking ID already exists

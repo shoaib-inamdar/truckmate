@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
@@ -68,7 +69,7 @@ class AuthProvider with ChangeNotifier {
           email: _user!.email,
           name: name,
         );
-        
+
         // Refresh user data to get profile info
         _user = await _userService.getCurrentUserWithProfile();
       }
@@ -110,13 +111,13 @@ class AuthProvider with ChangeNotifier {
   }
 
   // Set user after email OTP verification
-  Future<void> setUserAfterOTP(UserModel user) async {
+  Future<void> setUserAfterOTP(UserModel user, {String? role}) async {
     try {
       _user = user;
-      
+
       // Try to get profile from database
       final profile = await _userService.getUserProfile(user.id);
-      
+
       if (profile != null) {
         _user = profile;
       } else {
@@ -125,6 +126,7 @@ class AuthProvider with ChangeNotifier {
           userId: user.id,
           email: user.email,
           name: user.name,
+          role: role ?? 'user',
         );
         _user = await _userService.getCurrentUserWithProfile();
       }
@@ -180,6 +182,11 @@ class AuthProvider with ChangeNotifier {
 
       print('AuthProvider: Calling auth service logout...');
       await _authService.logout();
+
+      // Clear startup choice preference to return to role selection
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('startup_choice');
+      print('AuthProvider: Cleared startup_choice preference');
 
       print('AuthProvider: Logout successful, clearing state...');
       _user = null;

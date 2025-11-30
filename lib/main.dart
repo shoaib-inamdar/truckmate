@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/pages/book_transport.dart';
 import 'package:truckmate/pages/email_otp_login_screen.dart';
+import 'package:truckmate/pages/login.dart';
+import 'package:truckmate/pages/seller_registration_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/email_otp_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
+import 'package:truckmate/providers/seller_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +26,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => EmailOTPProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => SellerProvider()), // Add this
       ],
       child: MyApp(),
     ),
@@ -75,9 +80,60 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: AuthWrapper(),
+      home: const StartupRouter(),
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+class StartupRouter extends StatefulWidget {
+  const StartupRouter({Key? key}) : super(key: key);
+
+  @override
+  State<StartupRouter> createState() => _StartupRouterState();
+}
+
+class _StartupRouterState extends State<StartupRouter> {
+  String? _startupChoice; // 'customer' | 'seller' | null
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStartupChoice();
+  }
+
+  Future<void> _loadStartupChoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _startupChoice = prefs.getString('startup_choice');
+      _loaded = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded) {
+      return Scaffold(
+        backgroundColor: AppColors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
+        ),
+      );
+    }
+
+    if (_startupChoice == 'seller') {
+      return const SellerAuthWrapper();
+    }
+
+    if (_startupChoice == 'customer') {
+      return const AuthWrapper();
+    }
+
+    // No choice saved yet: show login choice screen
+    return const ChooseLoginScreen();
   }
 }
 
@@ -119,6 +175,51 @@ class AuthWrapper extends StatelessWidget {
             return BookTransportScreen();
           case AuthStatus.unauthenticated:
             return EmailOTPLoginScreen();
+        }
+      },
+    );
+  }
+}
+
+// Wrapper for seller flow ensuring authentication before showing registration
+class SellerAuthWrapper extends StatelessWidget {
+  const SellerAuthWrapper({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        switch (authProvider.status) {
+          case AuthStatus.uninitialized:
+          case AuthStatus.loading:
+            return Scaffold(
+              backgroundColor: AppColors.white,
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Loading seller flow...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          case AuthStatus.authenticated:
+            return const SellerRegistrationScreen();
+          case AuthStatus.unauthenticated:
+            // Re-use existing OTP login for sellers
+            return const EmailOTPLoginScreen();
         }
       },
     );
