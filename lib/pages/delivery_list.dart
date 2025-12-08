@@ -9,7 +9,7 @@ class DeliveryListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.light,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -23,7 +23,11 @@ class DeliveryListScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     _buildDeliveryCard(context, 'Delivered', AppColors.success),
                     const SizedBox(height: 16),
-                    _buildDeliveryCard(context, 'In Progress', AppColors.warning),
+                    _buildDeliveryCard(
+                      context,
+                      'In Progress',
+                      AppColors.warning,
+                    ),
                   ],
                 ),
               ),
@@ -80,7 +84,11 @@ class DeliveryListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDeliveryCard(BuildContext context, String status, Color statusColor) {
+  Widget _buildDeliveryCard(
+    BuildContext context,
+    String status,
+    Color statusColor,
+  ) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -118,7 +126,11 @@ class DeliveryListScreen extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 12),
-                      Icon(Icons.arrow_forward, size: 24, color: AppColors.primary),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 24,
+                        color: AppColors.primary,
+                      ),
                       SizedBox(width: 12),
                       Text(
                         'Pune',
@@ -133,7 +145,11 @@ class DeliveryListScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: const [
-                      Icon(Icons.fitness_center, size: 16, color: AppColors.secondary),
+                      Icon(
+                        Icons.fitness_center,
+                        size: 16,
+                        color: AppColors.secondary,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Weight: 10 tons',
@@ -147,7 +163,10 @@ class DeliveryListScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor,
                       borderRadius: BorderRadius.circular(6),
@@ -171,7 +190,11 @@ class DeliveryListScreen extends StatelessWidget {
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.description, size: 40, color: AppColors.dark),
+              child: const Icon(
+                Icons.description,
+                size: 40,
+                color: AppColors.dark,
+              ),
             ),
           ],
         ),
@@ -200,14 +223,8 @@ class DeliveryListScreen extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(
             icon: Icon(Icons.star_border),
             label: 'Favourites',

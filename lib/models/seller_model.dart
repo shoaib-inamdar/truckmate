@@ -1,16 +1,25 @@
 class VehicleInfo {
   final String vehicleNumber;
   final String? documentId; // File ID from Appwrite Storage
+  final String? frontImageId; // Front view image ID
+  final String? rearImageId; // Rear view image ID
+  final String? sideImageId; // Side view image ID
 
   VehicleInfo({
     required this.vehicleNumber,
     this.documentId,
+    this.frontImageId,
+    this.rearImageId,
+    this.sideImageId,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'vehicle_number': vehicleNumber,
       'document_id': documentId,
+      'front_image_id': frontImageId,
+      'rear_image_id': rearImageId,
+      'side_image_id': sideImageId,
     };
   }
 
@@ -18,6 +27,9 @@ class VehicleInfo {
     return VehicleInfo(
       vehicleNumber: json['vehicle_number'] ?? '',
       documentId: json['document_id'],
+      frontImageId: json['front_image_id'],
+      rearImageId: json['rear_image_id'],
+      sideImageId: json['side_image_id'],
     );
   }
 }
@@ -28,8 +40,9 @@ class SellerModel {
   final String name;
   final String address;
   final String contact;
-  final String aadharCardNo;
-  final String? aadharDocumentId;
+  final String email;
+  final String rcBookNo;
+  final String? rcDocumentId;
   final String panCardNo;
   final String? panDocumentId;
   final String drivingLicenseNo;
@@ -47,8 +60,9 @@ class SellerModel {
     required this.name,
     required this.address,
     required this.contact,
-    required this.aadharCardNo,
-    this.aadharDocumentId,
+    required this.email,
+    required this.rcBookNo,
+    this.rcDocumentId,
     required this.panCardNo,
     this.panDocumentId,
     required this.drivingLicenseNo,
@@ -68,20 +82,26 @@ class SellerModel {
       name: json['name'] ?? '',
       address: json['address'] ?? '',
       contact: json['contact'] ?? '',
-      aadharCardNo: json['aadhar_card_no'] ?? '',
-      aadharDocumentId: json['aadhar_document_id'],
+      email: json['email'] ?? '',
+      rcBookNo: json['rc_book_no'] ?? '',
+      rcDocumentId: json['rc_document_id'],
       panCardNo: json['pan_card_no'] ?? '',
       panDocumentId: json['pan_document_id'],
       drivingLicenseNo: json['driving_license_no'] ?? '',
       licenseDocumentId: json['license_document_id'],
       gstNo: json['gst_no'] ?? '',
       gstDocumentId: json['gst_document_id'],
-      selectedVehicleTypes: List<String>.from(json['selected_vehicle_types'] ?? []),
-      vehicles: (json['vehicles'] as List?)
+      selectedVehicleTypes: List<String>.from(
+        json['selected_vehicle_types'] ?? [],
+      ),
+      vehicles:
+          (json['vehicles'] as List?)
               ?.map((v) => VehicleInfo.fromJson(v))
               .toList() ??
           [],
-      createdAt: DateTime.parse(json['\$createdAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+        json['\$createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
       status: json['status'] ?? 'pending',
     );
   }
@@ -92,8 +112,9 @@ class SellerModel {
       'name': name,
       'address': address,
       'contact': contact,
-      'aadhar_card_no': aadharCardNo,
-      'aadhar_document_id': aadharDocumentId,
+      'email': email,
+      'rc_book_no': rcBookNo,
+      'rc_document_id': rcDocumentId,
       'pan_card_no': panCardNo,
       'pan_document_id': panDocumentId,
       'driving_license_no': drivingLicenseNo,

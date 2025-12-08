@@ -110,6 +110,38 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Create anonymous session for sellers
+  Future<bool> createAnonymousSession() async {
+    try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      _user = await _authService.createAnonymousSession();
+
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = AuthStatus.unauthenticated;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Delete current anonymous session
+  Future<void> deleteCurrentAnonymousSession() async {
+    try {
+      await _authService.deleteCurrentAnonymousSession();
+      _user = null;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting anonymous session: $e');
+    }
+  }
+
   // Set user after email OTP verification
   Future<void> setUserAfterOTP(UserModel user, {String? role}) async {
     try {
@@ -154,6 +186,22 @@ class AuthProvider with ChangeNotifier {
       _status = AuthStatus.loading;
       notifyListeners();
 
+      print('=== UPDATE USER PROFILE ===');
+      print('User ID: ${_user!.id}');
+      print('User Email: ${_user!.email}');
+      print('Name: $name');
+      print('Phone: $phone');
+      print('Address: $address');
+
+      // Validate email format before sending
+      if (_user!.email.isEmpty || !_user!.email.contains('@')) {
+        print('ERROR: Invalid email format: ${_user!.email}');
+        _errorMessage = 'Invalid user email. Please re-login.';
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return false;
+      }
+
       _user = await _userService.createOrUpdateUserProfile(
         userId: _user!.id,
         email: _user!.email,
@@ -161,6 +209,9 @@ class AuthProvider with ChangeNotifier {
         phone: phone,
         address: address,
       );
+
+      print('Profile updated successfully');
+      print('=== END UPDATE USER PROFILE ===');
 
       _status = AuthStatus.authenticated;
       notifyListeners();

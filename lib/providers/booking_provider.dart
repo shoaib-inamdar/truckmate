@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../services/booking_service.dart';
@@ -84,6 +85,24 @@ class BookingProvider with ChangeNotifier {
     }
   }
 
+  // Get bookings assigned to a seller
+  Future<void> loadSellerAssignedBookings(String sellerId) async {
+    try {
+      _status = BookingStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      _bookings = await _bookingService.getSellerAssignedBookings(sellerId);
+
+      _status = BookingStatus.success;
+      notifyListeners();
+    } catch (e) {
+      _status = BookingStatus.error;
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
   // Get booking by ID
   Future<BookingModel?> getBooking(String bookingId) async {
     try {
@@ -101,6 +120,32 @@ class BookingProvider with ChangeNotifier {
       _errorMessage = e.toString();
       notifyListeners();
       return null;
+    }
+  }
+
+  // Confirm payment with screenshot
+  Future<bool> confirmPayment({
+    required String bookingId,
+    required File paymentScreenshot,
+  }) async {
+    try {
+      _status = BookingStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _bookingService.confirmPayment(
+        bookingId: bookingId,
+        paymentScreenshot: paymentScreenshot,
+      );
+
+      _status = BookingStatus.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = BookingStatus.error;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
     }
   }
 

@@ -9,7 +9,7 @@ class DeliveryDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.light,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -39,15 +39,35 @@ class DeliveryDetailScreen extends StatelessWidget {
                           children: [
                             _buildInfoRow('Register ID', '', Icons.fingerprint),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Vehicle', 'Tempo', Icons.local_shipping),
+                            _buildInfoRow(
+                              'Vehicle',
+                              'Tempo',
+                              Icons.local_shipping,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Date', '11-OCT-2024', Icons.calendar_today_outlined),
+                            _buildInfoRow(
+                              'Date',
+                              '11-OCT-2024',
+                              Icons.calendar_today_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Start Location', '', Icons.my_location_outlined),
+                            _buildInfoRow(
+                              'Start Location',
+                              '',
+                              Icons.my_location_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Destination', '', Icons.location_city_outlined),
+                            _buildInfoRow(
+                              'Destination',
+                              '',
+                              Icons.location_city_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Bid amount', '', Icons.attach_money_outlined),
+                            _buildInfoRow(
+                              'Bid amount',
+                              '',
+                              Icons.attach_money_outlined,
+                            ),
                             const SizedBox(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -55,7 +75,11 @@ class DeliveryDetailScreen extends StatelessWidget {
                                 Expanded(
                                   child: Row(
                                     children: const [
-                                      Icon(Icons.phone_outlined, color: AppColors.secondary, size: 20),
+                                      Icon(
+                                        Icons.phone_outlined,
+                                        color: AppColors.secondary,
+                                        size: 20,
+                                      ),
                                       SizedBox(width: 12),
                                       Text(
                                         'Contact: 1234567890',
@@ -263,7 +287,11 @@ class DeliveryDetailScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.cloud_upload_outlined, size: 50, color: AppColors.secondary),
+                Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 50,
+                  color: AppColors.secondary,
+                ),
                 SizedBox(height: 16),
                 Text(
                   'Upload payment screenshot',

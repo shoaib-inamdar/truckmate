@@ -15,16 +15,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:AppColors.darkLight,
-     
+      backgroundColor: AppColors.darkLight,
+
       // backgroundColor: AppColors.primary  ,
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFFFAFBFB),Color(0xFF7ECF9A),Color(0xFfFAFBFB)],
-            // stops: [0.25, 0.75],
+            gradient: LinearGradient(
+              colors: [Color(0xFFFAFBFB), Color(0xFF7ECF9A), Color(0xFfFAFBFB)],
+              // stops: [0.25, 0.75],
               begin: Alignment.topRight,
-              end: Alignment.bottomLeft)
+              end: Alignment.bottomLeft,
+            ),
           ),
           child: Column(
             children: [
@@ -53,21 +55,42 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           const SizedBox(height: 24),
                           _buildSimpleTextField('Name', 'Enter your full name'),
                           const SizedBox(height: 16),
-                          _buildSimpleTextField('Address', 'Enter your address'),
+                          _buildSimpleTextField(
+                            'Address',
+                            'Enter your address',
+                          ),
                           const SizedBox(height: 16),
-                          _buildSimpleTextField('Contact', 'Enter contact number'),
+                          _buildSimpleTextField(
+                            'Contact',
+                            'Enter contact number',
+                          ),
                           const SizedBox(height: 16),
-                          _buildTextFieldWithIcons('Aadhar Card No.', 'Enter Aadhar number'),
+                          _buildTextFieldWithIcons(
+                            'RC Book No.',
+                            'Enter RC book number',
+                          ),
                           const SizedBox(height: 16),
-                          _buildTextFieldWithIcons('Pan Card No', 'Enter PAN number'),
+                          _buildTextFieldWithIcons(
+                            'Pan Card No',
+                            'Enter PAN number',
+                          ),
                           const SizedBox(height: 16),
-                          _buildTextFieldWithIcons('Driving License No', 'Enter license number'),
+                          _buildTextFieldWithIcons(
+                            'Driving License No',
+                            'Enter license number',
+                          ),
                           const SizedBox(height: 16),
-                          _buildTextFieldWithIcons('GST No', 'Enter GST number'),
+                          _buildTextFieldWithIcons(
+                            'GST No',
+                            'Enter GST number',
+                          ),
                           const SizedBox(height: 24),
                           _buildVehicleSelector(),
                           const SizedBox(height: 16),
-                          _buildTextFieldWithIcons('Vehicle No.', 'Enter vehicle number'),
+                          _buildTextFieldWithIcons(
+                            'Vehicle No.',
+                            'Enter vehicle number',
+                          ),
                           const SizedBox(height: 20),
                           _buildAddVehicleButton(),
                           const SizedBox(height: 24),
@@ -159,7 +182,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               hintText: hint,
               hintStyle: TextStyle(color: AppColors.textLight.withOpacity(0.6)),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
           ),
         ),
@@ -188,14 +214,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.light,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.secondary.withOpacity(0.2)),
+                  border: Border.all(
+                    color: AppColors.secondary.withOpacity(0.2),
+                  ),
                 ),
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: hint,
-                    hintStyle: TextStyle(color: AppColors.textLight.withOpacity(0.6)),
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight.withOpacity(0.6),
+                    ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -273,7 +306,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   color: isSelected ? AppColors.primary : AppColors.light,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isSelected ? AppColors.primaryDark : AppColors.secondary.withOpacity(0.2),
+                    color: isSelected
+                        ? AppColors.primaryDark
+                        : AppColors.secondary.withOpacity(0.2),
                     width: 2,
                   ),
                 ),
@@ -313,7 +348,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         decoration: BoxDecoration(
           color: AppColors.light,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.secondary.withOpacity(0.3), width: 2),
+          border: Border.all(
+            color: AppColors.secondary.withOpacity(0.3),
+            width: 2,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -388,14 +426,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(
             icon: Icon(Icons.star_border),
             label: 'Favourites',

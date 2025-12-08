@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/delivery_list.dart';
+import 'package:truckmate/pages/customer_profile_page.dart';
 // import 'package:truckmate/constants/colors.dart' as AppColors;
 
 class AdminPanelScreen extends StatelessWidget {
@@ -10,7 +11,7 @@ class AdminPanelScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.light,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -38,23 +39,59 @@ class AdminPanelScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildInfoRow('Name', 'Lorem ipsum', Icons.person_outline),
+                            _buildInfoRow(
+                              'Name',
+                              'Lorem ipsum',
+                              Icons.person_outline,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Vehicle', 'Tempo', Icons.local_shipping),
+                            _buildInfoRow(
+                              'Vehicle',
+                              'Tempo',
+                              Icons.local_shipping,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Contact', '1234567890', Icons.phone_outlined),
+                            _buildInfoRow(
+                              'Contact',
+                              '1234567890',
+                              Icons.phone_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Address', 'abc, abclace celcaekclec', Icons.location_on_outlined),
+                            _buildInfoRow(
+                              'Address',
+                              'abc, abclace celcaekclec',
+                              Icons.location_on_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Date', '11-OCT-2024', Icons.calendar_today_outlined),
+                            _buildInfoRow(
+                              'Date',
+                              '11-OCT-2024',
+                              Icons.calendar_today_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Load Description', '', Icons.description_outlined),
+                            _buildInfoRow(
+                              'Load Description',
+                              '',
+                              Icons.description_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Start Location', '', Icons.my_location_outlined),
+                            _buildInfoRow(
+                              'Start Location',
+                              '',
+                              Icons.my_location_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Destination', '', Icons.location_city_outlined),
+                            _buildInfoRow(
+                              'Destination',
+                              '',
+                              Icons.location_city_outlined,
+                            ),
                             const SizedBox(height: 16),
-                            _buildInfoRow('Bid amount', '', Icons.attach_money_outlined),
+                            _buildInfoRow(
+                              'Bid amount',
+                              '',
+                              Icons.attach_money_outlined,
+                            ),
                           ],
                         ),
                       ),
@@ -209,12 +246,13 @@ class AdminPanelScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const DeliveryListScreen()),
+                  builder: (context) => const CustomerProfilePage(),
+                ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: AppColors.white,
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.dark,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -222,7 +260,7 @@ class AdminPanelScreen extends StatelessWidget {
               elevation: 4,
             ),
             child: const Text(
-              'Accept',
+              'Profile',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -256,14 +294,8 @@ class AdminPanelScreen extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(
             icon: Icon(Icons.star_border),
             label: 'Favourites',

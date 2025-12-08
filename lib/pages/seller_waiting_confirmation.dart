@@ -1,12 +1,209 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/pages/login.dart';
+import 'package:truckmate/pages/seller_login_screen.dart';
+import 'package:truckmate/services/seller_service.dart';
+import 'package:truckmate/providers/auth_provider.dart';
 
-class SellerWaitingConfirmationScreen extends StatelessWidget {
+class SellerWaitingConfirmationScreen extends StatefulWidget {
   const SellerWaitingConfirmationScreen({Key? key}) : super(key: key);
 
   @override
+  State<SellerWaitingConfirmationScreen> createState() =>
+      _SellerWaitingConfirmationScreenState();
+}
+
+class _SellerWaitingConfirmationScreenState
+    extends State<SellerWaitingConfirmationScreen> {
+  final SellerService _sellerService = SellerService();
+  Timer? _statusCheckTimer;
+  bool _isCheckingStatus = false;
+  bool _hasNavigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check status once on load only
+    _checkApprovalStatus();
+  }
+
+  @override
+  void dispose() {
+    _statusCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkApprovalStatus() async {
+    if (_isCheckingStatus || _hasNavigated) return;
+
+    setState(() => _isCheckingStatus = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('seller_user_id');
+
+      if (userId == null) return;
+
+      final status = await _sellerService.checkSellerStatus(userId);
+
+      print('🔍 Status check returned: $status');
+
+      if (!mounted) return;
+
+      if (status == 'approved') {
+        print('✓ Seller status is APPROVED');
+
+        // Fetch credentials for the seller
+        final credentials = await _sellerService.getSellerCredentials(userId);
+
+        print('Credentials fetched: $credentials');
+
+        if (credentials != null) {
+          final username = credentials['username'];
+          final password = credentials['password'];
+          final email = credentials['email'];
+
+          print(
+            'Extracted - username: $username, email: $email, password: ${password?.replaceAll(RegExp(r'.'), '*')}',
+          );
+
+          if (username == null || password == null || email == null) {
+            // Credentials not available yet, show message and retry
+            print('❌ Missing credentials, retrying...');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Approval confirmed! Your credentials are being prepared. Please wait...',
+                ),
+                backgroundColor: AppColors.primary,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            setState(() => _isCheckingStatus = false);
+            return;
+          }
+
+          print(
+            '✓ All required credentials available, creating Appwrite account...',
+          );
+
+          // Create Appwrite account for the seller
+          try {
+            final accountCreated = await _sellerService.createSellerAccount(
+              email: email,
+              password: password,
+              sellerName: username,
+            );
+
+            if (!accountCreated) {
+              print(
+                '⚠️ Warning: Could not create Appwrite account, but proceeding...',
+              );
+            } else {
+              print('✓ Appwrite account created successfully');
+            }
+          } catch (e) {
+            print('⚠️ Error creating account: $e, but proceeding...');
+          }
+
+          print('✓ Preparing navigation...');
+
+          // Clear seller pending status before navigation
+          await prefs.remove('seller_status');
+          await prefs.remove('seller_user_id');
+
+          print('✓ SharedPreferences cleared');
+
+          // Mark as navigated to prevent multiple navigation attempts
+          _hasNavigated = true;
+
+          // Cancel the timer to stop checking
+          _statusCheckTimer?.cancel();
+
+          print('✓ Timer cancelled');
+
+          // Navigate to seller login screen with credentials
+          if (!mounted) {
+            print('❌ Widget not mounted, cannot navigate');
+            return;
+          }
+
+          print('🔄 Navigating to SellerLoginScreen with username: $username');
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => SellerLoginScreen(
+                approvedUsername: username,
+                approvedPassword: password,
+                approvedEmail: email,
+              ),
+            ),
+            (route) => false,
+          );
+
+          print('✓ Navigation initiated');
+        } else {
+          // Credentials not available yet, wait a bit
+          print(
+            '❌ Credentials are null, status is approved but credentials not found',
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Approval confirmed! Your credentials are being prepared. Please wait...',
+              ),
+              backgroundColor: AppColors.primary,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          setState(() => _isCheckingStatus = false);
+          return;
+        }
+      } else if (status == 'rejected') {
+        print('❌ Seller status is REJECTED');
+        // Clear seller pending status
+        await prefs.remove('seller_status');
+        await prefs.remove('seller_user_id');
+
+        // Mark as navigated to prevent multiple navigation attempts
+        _hasNavigated = true;
+
+        // Cancel the timer
+        _statusCheckTimer?.cancel();
+
+        // Show rejection message and navigate back
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your seller registration has been rejected. Please contact support.',
+            ),
+            backgroundColor: AppColors.danger,
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error checking approval status: $e');
+    } finally {
+      if (mounted && !_hasNavigated) {
+        setState(() => _isCheckingStatus = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Show waiting screen while checking status
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
@@ -88,7 +285,7 @@ class SellerWaitingConfirmationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 40),
 
-              // Status message
+              // Status message with refresh button
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -117,47 +314,136 @@ class SellerWaitingConfirmationScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    IconButton(
+                      icon: _isCheckingStatus
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.warning,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.refresh, color: AppColors.warning),
+                      onPressed: _isCheckingStatus
+                          ? null
+                          : _checkApprovalStatus,
+                      tooltip: 'Check status',
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 40),
 
-              // Back to home button
+              // Cancel Session Button
               SizedBox(
                 width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => const ChooseLoginScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.dark,
-                    foregroundColor: AppColors.primary,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showCancelSessionDialog(),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel Session'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    side: const BorderSide(color: AppColors.danger, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Back to Home',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _showCancelSessionDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.danger,
+              size: 28,
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text('Cancel Session?')),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to cancel this session? Your registration will remain pending, but you will be logged out.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'No, Keep Waiting',
+              style: TextStyle(color: AppColors.textDark),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Yes, Cancel Session'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      await _cancelSession();
+    }
+  }
+
+  Future<void> _cancelSession() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      // Clear seller status from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('seller_status');
+      await prefs.remove('seller_user_id');
+
+      // Delete the current session
+      await authProvider.deleteCurrentAnonymousSession();
+
+      if (!mounted) return;
+
+      // Navigate to login screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
+        (route) => false,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Session cancelled. Your registration remains pending.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error cancelling session: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text) {

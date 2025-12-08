@@ -13,6 +13,8 @@ class BookingModel {
   final String vehicleType; // Single selected vehicle type
   final DateTime createdAt;
   final String status; // e.g., 'pending', 'accepted', 'rejected', 'completed'
+  final String? assignedTo;
+  final String? paymentStatus;
 
   BookingModel({
     required this.id,
@@ -29,6 +31,8 @@ class BookingModel {
     required this.vehicleType,
     required this.createdAt,
     this.status = 'pending',
+    this.assignedTo,
+    this.paymentStatus,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -49,6 +53,8 @@ class BookingModel {
         json['\$createdAt'] ?? DateTime.now().toIso8601String(),
       ),
       status: json['status'] ?? 'pending',
+      assignedTo: json['assigned_to'],
+      paymentStatus: json['payment_status'],
     );
   }
 
@@ -66,6 +72,8 @@ class BookingModel {
       'bid_amount': bidAmount,
       'vehicle_type': vehicleType,
       'status': status,
+      'assigned_to': assignedTo,
+      'payment_status': paymentStatus,
     };
   }
 
@@ -84,6 +92,8 @@ class BookingModel {
     String? vehicleType,
     DateTime? createdAt,
     String? status,
+    String? assignedTo,
+    String? paymentStatus,
   }) {
     return BookingModel(
       id: id ?? this.id,
@@ -100,6 +110,8 @@ class BookingModel {
       vehicleType: vehicleType ?? this.vehicleType,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
+      assignedTo: assignedTo ?? this.assignedTo,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
     );
   }
 }

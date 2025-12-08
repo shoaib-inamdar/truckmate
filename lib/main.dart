@@ -4,7 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:truckmate/pages/book_transport.dart';
 import 'package:truckmate/pages/email_otp_login_screen.dart';
 import 'package:truckmate/pages/login.dart';
+import 'package:truckmate/pages/seller_choice_screen.dart';
+import 'package:truckmate/pages/seller_dashboard.dart';
 import 'package:truckmate/pages/seller_registration_screen.dart';
+import 'package:truckmate/pages/seller_waiting_confirmation.dart';
+import 'package:truckmate/pages/profile_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/email_otp_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
@@ -125,7 +129,7 @@ class _StartupRouterState extends State<StartupRouter> {
     }
 
     if (_startupChoice == 'seller') {
-      return const SellerAuthWrapper();
+      return const SellerChoiceScreen();
     }
 
     if (_startupChoice == 'customer') {
@@ -172,6 +176,10 @@ class AuthWrapper extends StatelessWidget {
               ),
             );
           case AuthStatus.authenticated:
+            final user = authProvider.user;
+            if (user == null || user.needsProfileCompletion()) {
+              return const ProfileCompletionScreen();
+            }
             return BookTransportScreen();
           case AuthStatus.unauthenticated:
             return EmailOTPLoginScreen();
@@ -181,46 +189,165 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// Wrapper for seller flow ensuring authentication before showing registration
-class SellerAuthWrapper extends StatelessWidget {
+// Wrapper for seller flow with anonymous session
+class SellerAuthWrapper extends StatefulWidget {
   const SellerAuthWrapper({Key? key}) : super(key: key);
 
   @override
+  State<SellerAuthWrapper> createState() => _SellerAuthWrapperState();
+}
+
+class _SellerAuthWrapperState extends State<SellerAuthWrapper> {
+  bool _isCreatingSession = false;
+  bool _isCheckingStatus = true;
+  String? _sellerStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    // Schedule the session creation after the build completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSellerStatusAndInitialize();
+    });
+  }
+
+  Future<void> _checkSellerStatusAndInitialize() async {
+    // Check if seller has already submitted registration or is logged in
+    final prefs = await SharedPreferences.getInstance();
+    final savedStatus = prefs.getString('seller_status');
+    final savedUserId = prefs.getString('seller_user_id');
+    final isLoggedIn = prefs.getString('seller_logged_in');
+
+    // If seller is logged in, set status to logged_in
+    if (isLoggedIn == 'true') {
+      setState(() {
+        _sellerStatus = 'logged_in';
+        _isCheckingStatus = false;
+      });
+      return;
+    }
+
+    if (savedStatus == 'pending' && savedUserId != null) {
+      setState(() {
+        _sellerStatus = 'pending';
+        _isCheckingStatus = false;
+      });
+      return;
+    }
+
+    // No saved status, proceed with session creation
+    setState(() => _isCheckingStatus = false);
+    await _createAnonymousSession();
+  }
+
+  Future<void> _createAnonymousSession() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Check if already authenticated
+    if (authProvider.status == AuthStatus.authenticated) {
+      return;
+    }
+
+    setState(() => _isCreatingSession = true);
+
+    try {
+      await authProvider.createAnonymousSession();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start session: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingSession = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // If checking status, show loading
+    if (_isCheckingStatus) {
+      return Scaffold(
+        backgroundColor: AppColors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Checking registration status...',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // If seller is logged in, show dashboard directly
+    if (_sellerStatus == 'logged_in') {
+      return const SellerDashboard();
+    }
+
+    // If seller has pending registration, show waiting screen
+    if (_sellerStatus == 'pending') {
+      return const SellerWaitingConfirmationScreen();
+    }
+
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        switch (authProvider.status) {
-          case AuthStatus.uninitialized:
-          case AuthStatus.loading:
-            return Scaffold(
-              backgroundColor: AppColors.white,
-              body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
-                      ),
+        if (_isCreatingSession || authProvider.status == AuthStatus.loading) {
+          return Scaffold(
+            backgroundColor: AppColors.white,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Loading seller flow...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Preparing registration...',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-            );
-          case AuthStatus.authenticated:
-            return const SellerRegistrationScreen();
-          case AuthStatus.unauthenticated:
-            // Re-use existing OTP login for sellers
-            return const EmailOTPLoginScreen();
+            ),
+          );
         }
+
+        if (authProvider.status == AuthStatus.authenticated) {
+          return const SellerRegistrationScreen();
+        }
+
+        // Fallback case - retry
+        return Scaffold(
+          backgroundColor: AppColors.white,
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Failed to start session',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _createAnonymousSession,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }

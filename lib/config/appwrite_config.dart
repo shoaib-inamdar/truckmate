@@ -12,9 +12,9 @@ class AppwriteConfig {
   // Collection IDs (if you create collections)
   static const String usersCollectionId = 'users';
   static const String bookingsCollectionId = 'user_data_collection';
-    static const String sellerRequestsCollectionId = 'seller_request';
+  static const String sellerRequestsCollectionId = 'seller_request';
   static const String sellerDocumentsBucketId = '692bccf7001b0bafdecd';
-
+  static const String paymentScreenshotsBucketId = '692bccf7001b0bafdecd';
 
   // API Configuration
   static const Duration timeout = Duration(seconds: 30);

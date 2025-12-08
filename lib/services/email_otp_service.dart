@@ -40,7 +40,21 @@ class EmailOTPService {
     required String secret,
   }) async {
     try {
-      print('Verifying OTP - UserId: $userId, Secret: $secret');
+      print('=== VERIFY EMAIL OTP ===');
+      print('UserId: $userId');
+      print('Secret (OTP): $secret');
+      print('Secret length: ${secret.length}');
+
+      // Delete existing session if any
+      print('Checking for existing sessions...');
+      try {
+        await _account.deleteSession(sessionId: 'current');
+        print('Existing session deleted');
+      } catch (e) {
+        print('No existing session to delete or error: $e');
+      }
+
+      print('Calling _account.createSession...');
 
       // Create session using the OTP (secret)
       final session = await _account.createSession(
@@ -48,18 +62,29 @@ class EmailOTPService {
         secret: secret,
       );
 
-      print('Session created successfully: ${session.userId}');
+      print('Session created successfully!');
+      print('Session userId: ${session.userId}');
+      print('Session id: ${session.$id}');
+      print('Getting current user...');
 
       // Get user details
       final user = await getCurrentUser();
+      print('User retrieved: ${user.email}');
+      print('=== END VERIFY EMAIL OTP ===');
       return user;
     } on AppwriteException catch (e) {
-      print(
-        'Appwrite verification error - Code: ${e.code}, Message: ${e.message}',
-      );
+      print('=== APPWRITE ERROR ===');
+      print('Error Code: ${e.code}');
+      print('Error Message: ${e.message}');
+      print('Error Type: ${e.type}');
+      print('Error Response: ${e.response}');
+      print('=== END ERROR ===');
       throw _handleAppwriteException(e);
     } catch (e) {
-      print('General verification error: ${e.toString()}');
+      print('=== GENERAL ERROR ===');
+      print('Error: ${e.toString()}');
+      print('Error type: ${e.runtimeType}');
+      print('=== END ERROR ===');
       throw 'Failed to verify OTP: ${e.toString()}';
     }
   }

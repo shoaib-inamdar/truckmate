@@ -13,7 +13,7 @@ enum EmailOTPStatus {
 
 class EmailOTPProvider with ChangeNotifier {
   final EmailOTPService _emailOTPService = EmailOTPService();
-  
+
   EmailOTPStatus _status = EmailOTPStatus.initial;
   UserModel? _user;
   String? _errorMessage;
@@ -25,8 +25,9 @@ class EmailOTPProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get userId => _userId;
   String? get email => _email;
-  bool get isLoading => _status == EmailOTPStatus.sendingOTP || 
-                        _status == EmailOTPStatus.verifyingOTP;
+  bool get isLoading =>
+      _status == EmailOTPStatus.sendingOTP ||
+      _status == EmailOTPStatus.verifyingOTP;
 
   // Send OTP to email
   Future<bool> sendEmailOTP(String email) async {
@@ -51,7 +52,13 @@ class EmailOTPProvider with ChangeNotifier {
 
   // Verify Email OTP
   Future<bool> verifyEmailOTP(String otp) async {
+    print('=== PROVIDER: Verify Email OTP ===');
+    print('OTP received: $otp');
+    print('Stored userId: $_userId');
+    print('Stored email: $_email');
+
     if (_userId == null) {
+      print('ERROR: userId is null!');
       _errorMessage = 'Please send OTP first';
       _status = EmailOTPStatus.error;
       notifyListeners();
@@ -59,22 +66,29 @@ class EmailOTPProvider with ChangeNotifier {
     }
 
     try {
+      print('Setting status to verifying...');
       _status = EmailOTPStatus.verifyingOTP;
       _errorMessage = null;
       notifyListeners();
 
+      print('Calling email OTP service...');
       _user = await _emailOTPService.verifyEmailOTP(
         userId: _userId!,
         secret: otp,
       );
 
+      print('Verification successful!');
+      print('User: ${_user?.email}');
       _status = EmailOTPStatus.verified;
       notifyListeners();
+      print('=== END PROVIDER ===');
       return true;
     } catch (e) {
+      print('ERROR in provider: ${e.toString()}');
       _status = EmailOTPStatus.error;
       _errorMessage = e.toString();
       notifyListeners();
+      print('=== END PROVIDER (ERROR) ===');
       return false;
     }
   }

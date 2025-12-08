@@ -55,6 +55,7 @@ class AuthService {
   }) async {
     try {
       // Appwrite SDK: create an email/password session
+      // This will automatically replace any existing anonymous session
       await _account.createEmailPasswordSession(
         email: email,
         password: password,
@@ -95,6 +96,27 @@ class AuthService {
     }
   }
 
+  // Create anonymous session
+  Future<UserModel> createAnonymousSession() async {
+    try {
+      // Create anonymous session
+      await _account.createAnonymousSession();
+
+      // Get the anonymous user data
+      final user = await _account.get();
+      return UserModel(
+        id: user.$id,
+        email: 'anonymous@seller.local',
+        name: 'Anonymous Seller',
+        createdAt: DateTime.parse(user.$createdAt),
+      );
+    } on AppwriteException catch (e) {
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      throw 'Failed to create anonymous session: ${e.toString()}';
+    }
+  }
+
   // Logout user
   Future<void> logout() async {
     try {
@@ -115,6 +137,25 @@ class AuthService {
     } catch (e) {
       // For logout, we don't want to throw errors if already logged out
       print('Logout info: ${e.toString()}');
+    }
+  }
+
+  // Delete current anonymous session
+  Future<void> deleteCurrentAnonymousSession() async {
+    try {
+      final isLoggedIn = await this.isLoggedIn();
+
+      if (isLoggedIn) {
+        // Delete the current session
+        await _account.deleteSession(sessionId: 'current');
+      }
+    } on AppwriteException catch (e) {
+      // Ignore 401 errors (not authorized)
+      if (e.code != 401) {
+        throw _handleAppwriteException(e);
+      }
+    } catch (e) {
+      print('Delete session info: ${e.toString()}');
     }
   }
 
@@ -207,6 +248,31 @@ class AuthService {
       throw _handleAppwriteException(e);
     } catch (e) {
       throw 'Failed to complete recovery: ${e.toString()}';
+    }
+  }
+
+  // Delete all sessions safely (used for logout or cleanup)
+  // Note: This may fail if user is in guest/anonymous session without account scope
+  Future<void> deleteAllSessionsSafely() async {
+    try {
+      print('Attempting to delete all sessions...');
+      // Try to delete current session first
+      try {
+        await _account.deleteSession(sessionId: 'current');
+        print('Deleted current session');
+      } catch (e) {
+        print('Could not delete current session: ${e.toString()}');
+      }
+
+      // Try to delete all sessions
+      try {
+        await _account.deleteSessions();
+        print('Deleted all sessions');
+      } catch (e) {
+        print('Could not delete all sessions: ${e.toString()}');
+      }
+    } catch (e) {
+      print('Error in deleteAllSessionsSafely: ${e.toString()}');
     }
   }
 

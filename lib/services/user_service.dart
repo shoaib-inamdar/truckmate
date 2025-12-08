@@ -26,6 +26,14 @@ class UserService {
   }) async {
     try {
       print('Creating/Updating profile for user: $userId');
+      print('Email received: $email');
+
+      // Validate email format
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(email)) {
+        print('Invalid email format detected: $email');
+        throw 'Invalid email format. Please provide a valid email address.';
+      }
 
       final data = {
         'email': email,
@@ -33,13 +41,6 @@ class UserService {
         'role': role,
         'phone': phone ?? '',
         'address': address ?? '',
-        // 'isProfileComplete':
-        //     (name.isNotEmpty &&
-        //     phone != null &&
-        //     phone.isNotEmpty &&
-        //     address != null &&
-        //     address.isNotEmpty),
-        // 'updatedAt': DateTime.now().toIso8601String(),
       };
 
       print('Profile data: $data');
@@ -195,19 +196,44 @@ class UserService {
     }
   }
 
+  // Delete user profile document
+  Future<void> deleteUserProfile(String userId) async {
+    try {
+      await _databases.deleteDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.usersCollectionId,
+        documentId: userId,
+      );
+    } on AppwriteException catch (e) {
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      throw 'Failed to delete profile: ${e.toString()}';
+    }
+  }
+
   // Convert Appwrite document to UserModel
   UserModel _documentToUserModel(models.Document doc) {
+    final name = doc.data['name'] ?? '';
+    final phone = doc.data['phone'];
+    final address = doc.data['address'];
+    final computedComplete =
+        name.isNotEmpty &&
+        phone != null &&
+        phone.isNotEmpty &&
+        address != null &&
+        address.isNotEmpty;
+
     return UserModel(
       id: doc.$id,
       email: doc.data['email'] ?? '',
-      name: doc.data['name'] ?? '',
+      name: name,
       createdAt: DateTime.parse(doc.$createdAt),
       role: doc.data['role'] ?? 'user',
-      phone: doc.data['phone'],
-      address: doc.data['address'],
+      phone: phone,
+      address: address,
       emailVerification: doc.data['emailVerification'] ?? false,
       phoneVerification: doc.data['phoneVerification'] ?? false,
-      // isProfileComplete: doc.data['isProfileComplete'] ?? false,
+      isProfileComplete: computedComplete,
     );
   }
 

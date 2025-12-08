@@ -5,6 +5,7 @@ import 'package:truckmate/pages/favourite.dart';
 import 'package:truckmate/pages/history.dart';
 import '../constants/colors.dart';
 import '../providers/auth_provider.dart';
+import 'customer_profile_page.dart';
 // import 'admin_panel_screen.dart';
 // import 'history_screen.dart';
 // import 'favourites_screen.dart';
@@ -49,6 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 await authProvider.logout();
                 print('Logout method completed');
                 // AuthWrapper will automatically navigate to LoginScreen
+              } else if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CustomerProfilePage(),
+                  ),
+                );
               }
             },
             itemBuilder: (BuildContext context) => [
@@ -76,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      backgroundColor: AppColors.white,
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,

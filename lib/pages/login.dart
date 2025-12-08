@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
+import 'package:truckmate/pages/seller_choice_screen.dart';
 import 'package:truckmate/main.dart' hide AppColors;
-// Removed unused: book_transport.dart & registeration.dart
-// Removed unused: book_transport.dart & registeration.dart
-// import 'package:truckmate/pages/seller_registration_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:truckmate/constants/colors.dart' as AppColors;
-// import 'package:truckmate/pages/book_transport.dart';
-// import 'package:truckmate/pages/registeration.dart';
 
 class ChooseLoginScreen extends StatelessWidget {
   const ChooseLoginScreen({super.key});
@@ -27,32 +22,14 @@ class ChooseLoginScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: size.height * 0.1),
+                  SizedBox(height: size.height * 0.05),
                   _buildBrandHeader(),
                   SizedBox(height: size.height * 0.08),
-                  _buildLoginButton(context, 'Login as\nCustomer', () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('startup_choice', 'customer');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AuthWrapper(),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 50),
+                  _buildCustomerButton(context),
+                  const SizedBox(height: 40),
                   _buildDivider(),
-                  const SizedBox(height: 50),
-                  _buildLoginButton(context, 'Login as\nSeller', () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('startup_choice', 'seller');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SellerAuthWrapper(),
-                      ),
-                    );
-                  }),
+                  const SizedBox(height: 40),
+                  _buildSellerButton(context),
                   SizedBox(height: size.height * 0.1),
                 ],
               ),
@@ -113,7 +90,7 @@ class ChooseLoginScreen extends StatelessWidget {
           child: Text(
             'OR',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.secondary,
               letterSpacing: 1,
@@ -130,17 +107,95 @@ class ChooseLoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginButton(
-    BuildContext context,
-    String text,
-    VoidCallback onTap,
-  ) {
+  Widget _buildCustomerButton(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: () async {
+        print('=== LOGIN AS CUSTOMER CLICKED ===');
+        print('Timestamp: ${DateTime.now()}');
+        print('Getting SharedPreferences instance...');
+        final prefs = await SharedPreferences.getInstance();
+        print('Setting startup_choice to "customer"...');
+        await prefs.setString('startup_choice', 'customer');
+        print('startup_choice saved: ${prefs.getString('startup_choice')}');
+        if (!context.mounted) {
+          print('ERROR: Context not mounted, aborting navigation');
+          return;
+        }
+        print('Context is mounted, navigating to AuthWrapper...');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AuthWrapper()),
+        );
+        print('Navigation completed to AuthWrapper');
+        print('=== END LOGIN AS CUSTOMER ===');
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 50),
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.dark.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person, size: 32, color: AppColors.dark),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Login as\nCustomer',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Book transport services',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.dark.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSellerButton(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('startup_choice', 'seller');
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SellerChoiceScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40),
         decoration: BoxDecoration(
           color: AppColors.dark,
           borderRadius: BorderRadius.circular(16),
@@ -152,18 +207,42 @@ class ChooseLoginScreen extends StatelessWidget {
             ),
           ],
         ),
-        child: Center(
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white,
-              height: 1.4,
-              letterSpacing: 0.5,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.local_shipping,
+                size: 32,
+                color: AppColors.primary,
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            const Text(
+              'Register as\nSeller',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Provide transport services',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.white.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

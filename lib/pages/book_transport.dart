@@ -1,9 +1,10 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:truckmate/pages/login.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:truckmate/constants/colors.dart';
+import 'package:truckmate/pages/customer_profile_page.dart';
+import 'package:truckmate/pages/customer_bookings_list_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
@@ -18,7 +19,7 @@ class BookTransportScreen extends StatefulWidget {
 
 class _BookTransportScreenState extends State<BookTransportScreen> {
   final _formKey = GlobalKey<FormState>();
-  int? _selectedVehicleIndex; // single selection
+  final Set<int> _selectedVehicles = {};
   int activeIndex = 0;
   bool _isLoading = false;
 
@@ -141,9 +142,12 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
       return;
     }
 
-    // Ensure one vehicle type selected
-    if (_selectedVehicleIndex == null) {
-      SnackBarHelper.showError(context, 'Please select a vehicle type');
+    // Check if at least one vehicle is selected
+    if (_selectedVehicles.isEmpty) {
+      SnackBarHelper.showError(
+        context,
+        'Please select at least one vehicle type',
+      );
       return;
     }
 
@@ -161,8 +165,14 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
 
     setState(() => _isLoading = true);
 
-    // Get selected vehicle type
-    final selectedVehicleType = vehicleTypesList[_selectedVehicleIndex!];
+    // Get selected vehicle types and pick the first selected as single vehicle type
+    final selectedVehicleTypes = _selectedVehicles
+        .map((index) => vehicleTypesList[index])
+        .toList();
+
+    final selectedVehicleType = selectedVehicleTypes.isNotEmpty
+        ? selectedVehicleTypes.first
+        : '';
 
     // Create booking
     final success = await bookingProvider.createBooking(
@@ -277,7 +287,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     _destinationController.clear();
     _bidAmountController.clear();
     setState(() {
-      _selectedVehicleIndex = null;
+      _selectedVehicles.clear();
     });
   }
 
@@ -292,23 +302,8 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
         foregroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout & Switch Role',
-            onPressed: () async {
-              await authProvider.logout();
-              if (!context.mounted) return;
-              // Navigate to role selection
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
-                (route) => false,
-              );
-            },
-          ),
-        ],
       ),
-      backgroundColor: AppColors.light,
+      backgroundColor: AppColors.white,
       body: LoadingOverlay(
         isLoading: _isLoading,
         message: 'Submitting booking...',
@@ -446,51 +441,40 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
           ),
         ),
       ),
-      drawer: Drawer(
-        child: Column(
-          children: [
-            DrawerHeader(child: Icon(Icons.person, size: 120)),
-            ListTile(
-              leading: Icon(Icons.feed_outlined),
-              title: Text("Feedback"),
-            ),
-            ListTile(
-              leading: Icon(Icons.logout),
-              onTap: () async {
-                await authProvider.logout();
-              },
-              title: Text("Logout"),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          InkWell(
-            onTap: () {
-              Scaffold.of(context).openDrawer();
-            },
-            child: _buildTopIcon(Icons.person_outline),
-          ),
-          _buildTopIcon(Icons.notifications_outlined),
-        ],
+    return Builder(
+      builder: (scaffoldContext) => Container(
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  scaffoldContext,
+                  MaterialPageRoute(
+                    builder: (_) => const CustomerProfilePage(),
+                  ),
+                );
+              },
+              child: _buildTopIcon(Icons.person_outline),
+            ),
+            _buildTopIcon(Icons.notifications_outlined),
+          ],
+        ),
       ),
     );
   }
@@ -663,11 +647,15 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
           ),
           itemCount: 6,
           itemBuilder: (context, index) {
-            final isSelected = _selectedVehicleIndex == index;
+            final isSelected = _selectedVehicles.contains(index);
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedVehicleIndex = index;
+                  if (isSelected) {
+                    _selectedVehicles.remove(index);
+                  } else {
+                    _selectedVehicles.add(index);
+                  }
                 });
               },
               child: Container(
@@ -763,9 +751,24 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
         elevation: 0,
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        onTap: (index) {
+          if (index == 1) {
+            // Navigate to Bookings
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CustomerBookingsListScreen(),
+              ),
+            );
+          }
+          // Add navigation for other tabs as needed
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Bookings',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.star_border),
             label: 'Favourites',

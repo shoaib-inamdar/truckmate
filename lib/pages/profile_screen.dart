@@ -13,7 +13,8 @@ class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({Key? key}) : super(key: key);
 
   @override
-  State<ProfileCompletionScreen> createState() => _ProfileCompletionScreenState();
+  State<ProfileCompletionScreen> createState() =>
+      _ProfileCompletionScreenState();
 }
 
 class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
@@ -34,6 +35,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -45,6 +47,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       address: _addressController.text.trim(),
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (!mounted) return;
@@ -69,6 +72,14 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: AppColors.dark),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: LoadingOverlay(
         isLoading: _isLoading,
         message: 'Saving your profile...',
@@ -81,7 +92,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
 
                     // Header
                     Center(

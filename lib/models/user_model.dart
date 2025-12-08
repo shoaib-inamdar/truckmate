@@ -51,7 +51,7 @@ class UserModel {
       'role': role,
       'emailVerification': emailVerification,
       'phoneVerification': phoneVerification,
-      'isProfileComplete': isProfileComplete,
+      // isProfileComplete is computed locally, not stored in DB
     };
   }
 
@@ -83,11 +83,9 @@ class UserModel {
 
   // Check if user needs to complete profile
   bool needsProfileCompletion() {
-    return !isProfileComplete ||
-        name.isEmpty ||
-        phone == null ||
-        phone!.isEmpty ||
-        address == null ||
-        address!.isEmpty;
+    final hasName = name.isNotEmpty;
+    final hasPhone = phone != null && phone!.isNotEmpty;
+    final hasAddress = address != null && address!.isNotEmpty;
+    return !(hasName && hasPhone && hasAddress);
   }
 }

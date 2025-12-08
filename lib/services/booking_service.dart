@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
@@ -9,24 +10,25 @@ class BookingService {
   final _appwriteService = AppwriteService();
 
   late final Databases _databases;
+  late final Storage _storage;
   late final Account _account;
 
   BookingService() {
     _databases = _appwriteService.databases;
+    _storage = Storage(_appwriteService.client);
     _account = _appwriteService.account;
   }
 
-  // Generate unique booking ID with format CBK-XXXXXXXXXX (10 random chars)
+  // Generate unique 6-character alphanumeric booking ID
   String _generateBookingId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    final randomString = String.fromCharCodes(
+    return String.fromCharCodes(
       Iterable.generate(
-        10,
+        6,
         (_) => chars.codeUnitAt(random.nextInt(chars.length)),
       ),
     );
-    return 'CBK-$randomString';
   }
 
   // Check if booking ID already exists
@@ -56,6 +58,94 @@ class BookingService {
     return bookingId;
   }
 
+  // Get current user ID
+  Future<String?> _getCurrentUserId() async {
+    try {
+      final user = await _account.get();
+      return user.$id;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Upload payment screenshot
+  Future<String?> uploadPaymentScreenshot(File file, String bookingId) async {
+    try {
+      print('Uploading payment screenshot for booking: $bookingId');
+
+      final fileSize = await file.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        throw 'File size exceeds 5MB limit';
+      }
+
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw 'User not authenticated';
+      }
+
+      final fileName =
+          'payment_${bookingId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final result = await _storage.createFile(
+        bucketId: AppwriteConfig.paymentScreenshotsBucketId,
+        fileId: ID.unique(),
+        file: InputFile.fromPath(path: file.path, filename: fileName),
+        permissions: [
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(userId)),
+        ],
+      );
+
+      print('Payment screenshot uploaded: ${result.$id}');
+      return result.$id;
+    } on AppwriteException catch (e) {
+      print('Appwrite error uploading payment: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error uploading payment: ${e.toString()}');
+      throw 'Failed to upload payment screenshot: ${e.toString()}';
+    }
+  }
+
+  // Confirm payment
+  Future<void> confirmPayment({
+    required String bookingId,
+    required File paymentScreenshot,
+  }) async {
+    try {
+      print('Confirming payment for booking: $bookingId');
+
+      // Upload payment screenshot
+      final paymentFileId = await uploadPaymentScreenshot(
+        paymentScreenshot,
+        bookingId,
+      );
+
+      if (paymentFileId == null) {
+        throw 'Failed to upload payment screenshot';
+      }
+
+      // Update booking with payment info
+      await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        documentId: bookingId,
+        data: {
+          'payment_screenshot_id': paymentFileId,
+          'payment_status': 'submitted',
+          'payment_date': DateTime.now().toIso8601String(),
+        },
+      );
+
+      print('Payment confirmed successfully');
+    } on AppwriteException catch (e) {
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      throw 'Failed to confirm payment: ${e.toString()}';
+    }
+  }
+
   // Create a new booking
   Future<BookingModel> createBooking({
     required String userId,
@@ -72,7 +162,6 @@ class BookingService {
     try {
       print('Creating booking for user: $userId');
 
-      // Generate unique booking ID
       final bookingId = await _generateUniqueBookingId();
       print('Generated booking ID: $bookingId');
 
@@ -87,17 +176,18 @@ class BookingService {
         'start_location': startLocation,
         'destination': destination,
         'bid_amount': bidAmount,
+        // Store single required vehicle type (Appwrite schema is `vehicle_type`)
         'vehicle_type': vehicleType,
         'status': 'pending',
+        'payment_status': 'pending',
       };
 
       print('Booking data: $data');
 
-      // Create document with booking ID as document ID
       final doc = await _databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.bookingsCollectionId,
-        documentId: bookingId, // Use booking ID as document ID
+        documentId: bookingId,
         data: data,
         permissions: [
           Permission.read(Role.user(userId)),
@@ -146,7 +236,7 @@ class BookingService {
         collectionId: AppwriteConfig.bookingsCollectionId,
         queries: [
           Query.equal('user_id', userId),
-          Query.orderDesc('\$createdAt'),
+          Query.orderDesc(r'$createdAt'),
         ],
       );
 
@@ -163,6 +253,58 @@ class BookingService {
     } catch (e) {
       print('General error in getUserBookings: ${e.toString()}');
       throw 'Failed to get bookings: ${e.toString()}';
+    }
+  }
+
+  // Get bookings assigned to a seller
+  Future<List<BookingModel>> getSellerAssignedBookings(String sellerId) async {
+    try {
+      print('Getting bookings assigned to seller: $sellerId');
+
+      // First try to fetch bookings explicitly assigned to this seller
+      final assignedResult = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        queries: [
+          Query.equal('assigned_to', sellerId),
+          Query.orderDesc(r'$createdAt'),
+        ],
+      );
+
+      if (assignedResult.documents.isNotEmpty) {
+        print('Found ${assignedResult.documents.length} assigned bookings');
+        return assignedResult.documents
+            .map((doc) => _documentToBookingModel(doc))
+            .toList();
+      }
+
+      // If none are assigned yet, fall back to pending bookings so seller sees open jobs
+      print(
+        'No assigned bookings found. Loading pending bookings as fallback.',
+      );
+
+      final pendingResult = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        queries: [
+          Query.equal('status', 'pending'),
+          Query.orderDesc(r'$createdAt'),
+        ],
+      );
+
+      print('Found ${pendingResult.documents.length} pending bookings');
+
+      return pendingResult.documents
+          .map((doc) => _documentToBookingModel(doc))
+          .toList();
+    } on AppwriteException catch (e) {
+      print(
+        'Appwrite error in getSellerAssignedBookings: Code ${e.code}, Message: ${e.message}',
+      );
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('General error in getSellerAssignedBookings: ${e.toString()}');
+      throw 'Failed to get assigned bookings: ${e.toString()}';
     }
   }
 
@@ -229,6 +371,8 @@ class BookingService {
       vehicleType: doc.data['vehicle_type'] ?? '',
       createdAt: DateTime.parse(doc.$createdAt),
       status: doc.data['status'] ?? 'pending',
+      assignedTo: doc.data['assigned_to'],
+      paymentStatus: doc.data['payment_status'],
     );
   }
 
