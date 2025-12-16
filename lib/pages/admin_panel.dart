@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart' hide AppColors;
-import 'package:truckmate/pages/delivery_list.dart';
 import 'package:truckmate/pages/customer_profile_page.dart';
-// import 'package:truckmate/constants/colors.dart' as AppColors;
 
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

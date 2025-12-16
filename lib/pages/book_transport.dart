@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/pages/customer_profile_page.dart';
-import 'package:truckmate/pages/customer_bookings_list_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
@@ -12,36 +10,34 @@ import 'package:truckmate/widgets/snackbar_helper.dart';
 
 class BookTransportScreen extends StatefulWidget {
   const BookTransportScreen({super.key});
-
   @override
   State<BookTransportScreen> createState() => _BookTransportScreenState();
 }
 
 class _BookTransportScreenState extends State<BookTransportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final Set<int> _selectedVehicles = {};
+  int? _selectedVehicle;
   int activeIndex = 0;
   bool _isLoading = false;
-
-  // Controllers
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _dateController = TextEditingController();
+  final _loadNumberController = TextEditingController();
+  String _loadUnit = 'kg';
   final _loadDescriptionController = TextEditingController();
   final _startLocationController = TextEditingController();
   final _destinationController = TextEditingController();
+  final _fixedLocationController = TextEditingController();
   final _bidAmountController = TextEditingController();
-
   final List<String> vehicleTypesList = [
     'Truck',
     'Tempo',
     'Mini Truck',
     'Container',
     'Trailer',
-    'Van',
+    'Mini Pickup',
   ];
-
   final widgets = [
     Container(
       decoration: BoxDecoration(
@@ -80,7 +76,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
       ),
     ),
   ];
-
   @override
   void initState() {
     super.initState();
@@ -102,9 +97,11 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _dateController.dispose();
+    _loadNumberController.dispose();
     _loadDescriptionController.dispose();
     _startLocationController.dispose();
     _destinationController.dispose();
+    _fixedLocationController.dispose();
     _bidAmountController.dispose();
     super.dispose();
   }
@@ -136,74 +133,56 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    // Validate form
     if (!_formKey.currentState!.validate()) {
       SnackBarHelper.showError(context, 'Please fill all required fields');
       return;
     }
-
-    // Check if at least one vehicle is selected
-    if (_selectedVehicles.isEmpty) {
-      SnackBarHelper.showError(
-        context,
-        'Please select at least one vehicle type',
-      );
+    if (_selectedVehicle == null) {
+      SnackBarHelper.showError(context, 'Please select a vehicle type');
       return;
     }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final bookingProvider = Provider.of<BookingProvider>(
       context,
       listen: false,
     );
-
-    // Check if user is authenticated
     if (authProvider.user == null) {
       SnackBarHelper.showError(context, 'Please login to continue');
       return;
     }
-
     setState(() => _isLoading = true);
+    final selectedVehicleType = vehicleTypesList[_selectedVehicle!];
 
-    // Get selected vehicle types and pick the first selected as single vehicle type
-    final selectedVehicleTypes = _selectedVehicles
-        .map((index) => vehicleTypesList[index])
-        .toList();
-
-    final selectedVehicleType = selectedVehicleTypes.isNotEmpty
-        ? selectedVehicleTypes.first
+    final load = _loadNumberController.text.trim().isNotEmpty
+        ? '${_loadNumberController.text.trim()} $_loadUnit'
         : '';
 
-    // Create booking
     final success = await bookingProvider.createBooking(
       userId: authProvider.user!.id,
       fullName: _nameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       address: _addressController.text.trim(),
       date: _dateController.text.trim(),
+      load: load,
       loadDescription: _loadDescriptionController.text.trim(),
       startLocation: _startLocationController.text.trim(),
       destination: _destinationController.text.trim(),
-      bidAmount: _bidAmountController.text.trim(),
+      fixedLocation: _fixedLocationController.text.trim().isNotEmpty
+          ? _fixedLocationController.text.trim()
+          : null,
+      bidAmount: '₹${_bidAmountController.text.trim()}',
       vehicleType: selectedVehicleType,
     );
-
     setState(() => _isLoading = false);
-
     if (!mounted) return;
-
     if (success) {
       SnackBarHelper.showSuccess(
         context,
         'Booking submitted successfully! Booking ID: ${bookingProvider.currentBooking?.bookingId}',
       );
-
-      // Show booking ID dialog
       _showBookingConfirmationDialog(
         bookingProvider.currentBooking?.bookingId ?? '',
       );
-
-      // Clear form
       _clearForm();
     } else {
       SnackBarHelper.showError(
@@ -282,27 +261,22 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
 
   void _clearForm() {
     _dateController.clear();
+    _loadNumberController.clear();
+    setState(() => _loadUnit = 'kg');
     _loadDescriptionController.clear();
     _startLocationController.clear();
     _destinationController.clear();
+    _fixedLocationController.clear();
     _bidAmountController.clear();
     setState(() {
-      _selectedVehicles.clear();
+      _selectedVehicle = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cargo Balancer'),
-        backgroundColor: AppColors.dark,
-        foregroundColor: AppColors.primary,
-        elevation: 0,
-        centerTitle: true,
-      ),
       backgroundColor: AppColors.white,
       body: LoadingOverlay(
         isLoading: _isLoading,
@@ -310,7 +284,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              _buildTopBar(),
               Expanded(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -339,7 +312,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                                     enlargeStrategy:
                                         CenterPageEnlargeStrategy.scale,
                                     enlargeCenterPage: true,
-                                    height: 200,
+                                    height: 180,
                                     autoPlay: true,
                                     autoPlayInterval: Duration(seconds: 2),
                                   ),
@@ -396,6 +369,8 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                             const SizedBox(height: 16),
                             _buildDateField(),
                             const SizedBox(height: 16),
+                            _buildLoadField(),
+                            const SizedBox(height: 16),
                             _buildTextField(
                               'Load Description',
                               'Enter description',
@@ -418,9 +393,17 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                             ),
                             const SizedBox(height: 16),
                             _buildTextField(
+                              'Preferred traveling route',
+                              'Enter Preferred traveling route',
+                              Icons.place_outlined,
+                              _fixedLocationController,
+                              isRequired: false,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
                               'Your Bid Amount',
                               'Enter bid value',
-                              Icons.attach_money_outlined,
+                              Icons.currency_rupee,
                               _bidAmountController,
                               keyboardType: TextInputType.number,
                             ),
@@ -436,59 +419,10 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                   ),
                 ),
               ),
-              _buildBottomNav(0),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Builder(
-      builder: (scaffoldContext) => Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  scaffoldContext,
-                  MaterialPageRoute(
-                    builder: (_) => const CustomerProfilePage(),
-                  ),
-                );
-              },
-              child: _buildTopIcon(Icons.person_outline),
-            ),
-            _buildTopIcon(Icons.notifications_outlined),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopIcon(IconData icon) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.dark, width: 2),
-        color: AppColors.white,
-      ),
-      child: Icon(icon, color: AppColors.dark, size: 24),
     );
   }
 
@@ -498,6 +432,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     IconData icon,
     TextEditingController controller, {
     TextInputType keyboardType = TextInputType.text,
+    bool isRequired = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,12 +462,14 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
           child: TextFormField(
             controller: controller,
             keyboardType: keyboardType,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'This field is required';
-              }
-              return null;
-            },
+            validator: isRequired
+                ? (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'This field is required';
+                    }
+                    return null;
+                  }
+                : null,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(color: AppColors.textLight.withOpacity(0.6)),
@@ -611,17 +548,122 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     );
   }
 
+  Widget _buildLoadField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Load',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextFormField(
+                  controller: _loadNumberController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Enter load',
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight.withOpacity(0.6),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.scale_outlined,
+                      color: AppColors.secondary,
+                      size: 20,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: _loadUnit,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  items: ['kg', 'tons'].map((String unit) {
+                    return DropdownMenuItem<String>(
+                      value: unit,
+                      child: Text(unit),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _loadUnit = newValue;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   buildIndicator() => AnimatedSmoothIndicator(
     activeIndex: activeIndex,
     count: widgets.length,
     effect: JumpingDotEffect(
-      spacing: 20,
-      verticalOffset: 14.0,
+      spacing: 12,
+      verticalOffset: 10.0,
+      dotHeight: 10,
+      dotWidth: 10,
       activeDotColor: AppColors.primary,
       dotColor: Color(0xffdadada),
     ),
   );
-
   Widget _buildVehicleSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,15 +689,11 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
           ),
           itemCount: 6,
           itemBuilder: (context, index) {
-            final isSelected = _selectedVehicles.contains(index);
+            final isSelected = _selectedVehicle == index;
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  if (isSelected) {
-                    _selectedVehicles.remove(index);
-                  } else {
-                    _selectedVehicles.add(index);
-                  }
+                  _selectedVehicle = index;
                 });
               },
               child: Container(
@@ -731,57 +769,10 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     );
   }
 
-  Widget _buildBottomNav(int currentIndex) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.secondary,
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        onTap: (index) {
-          if (index == 1) {
-            // Navigate to Bookings
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CustomerBookingsListScreen(),
-              ),
-            );
-          }
-          // Add navigation for other tabs as needed
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star_border),
-            label: 'Favourites',
-          ),
-        ],
-      ),
-    );
-  }
+  Widget buildImage(assetImage, int index) => Container(
+    child: InkWell(
+      onTap: () {},
+      child: Container(child: assetImage, decoration: BoxDecoration()),
+    ),
+  );
 }
-
-Widget buildImage(assetImage, int index) => Container(
-  child: InkWell(
-    onTap: () {},
-    child: Container(child: assetImage, decoration: BoxDecoration()),
-  ),
-);

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,7 +18,6 @@ import 'package:path_provider/path_provider.dart';
 
 class SellerRegistrationScreen extends StatefulWidget {
   const SellerRegistrationScreen({Key? key}) : super(key: key);
-
   @override
   State<SellerRegistrationScreen> createState() =>
       _SellerRegistrationScreenState();
@@ -27,35 +27,25 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final Set<int> _selectedVehicles = {};
   bool _isLoading = false;
-
-  // Controllers
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _contactController = TextEditingController();
   final _emailController = TextEditingController();
-  final _rcBookController = TextEditingController();
   final _panController = TextEditingController();
   final _licenseController = TextEditingController();
   final _gstController = TextEditingController();
-
-  // Document files
-  File? _rcBookFile;
   File? _panFile;
   File? _licenseFile;
   File? _gstFile;
-
-  // Vehicle list
   final List<VehicleEntry> _vehicles = [];
-
   final List<String> vehicleTypesList = [
     'Truck',
     'Tempo',
     'Mini Truck',
     'Container',
     'Trailer',
-    'Van',
+    'Mini Pickup',
   ];
-
   @override
   void initState() {
     super.initState();
@@ -63,43 +53,32 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
   }
 
   bool _isFormComplete() {
-    // Check all text fields are filled
     if (_nameController.text.trim().isEmpty ||
         _addressController.text.trim().isEmpty ||
         _contactController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
-        _rcBookController.text.trim().isEmpty ||
         _panController.text.trim().isEmpty ||
         _licenseController.text.trim().isEmpty ||
         _gstController.text.trim().isEmpty) {
       return false;
     }
-
-    // Check all documents are uploaded
-    if (_rcBookFile == null ||
-        _panFile == null ||
-        _licenseFile == null ||
-        _gstFile == null) {
+    if (_panFile == null || _licenseFile == null || _gstFile == null) {
       return false;
     }
-
-    // Check at least one vehicle type is selected
     if (_selectedVehicles.isEmpty) {
       return false;
     }
-
-    // Check at least one vehicle is added
     if (_vehicles.isEmpty) {
       return false;
     }
-
-    // Check all vehicles have numbers
     for (var vehicle in _vehicles) {
-      if (vehicle.controller.text.trim().isEmpty) {
+      if (vehicle.controller.text.trim().isEmpty ||
+          vehicle.rcBookController.text.trim().isEmpty ||
+          vehicle.maxWeightController.text.trim().isEmpty ||
+          vehicle.rcBookFile == null) {
         return false;
       }
     }
-
     return true;
   }
 
@@ -119,12 +98,13 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     _addressController.dispose();
     _contactController.dispose();
     _emailController.dispose();
-    _rcBookController.dispose();
     _panController.dispose();
     _licenseController.dispose();
     _gstController.dispose();
     for (var vehicle in _vehicles) {
       vehicle.controller.dispose();
+      vehicle.rcBookController.dispose();
+      vehicle.maxWeightController.dispose();
     }
     super.dispose();
   }
@@ -134,11 +114,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       SnackBarHelper.showError(context, 'No file uploaded');
       return;
     }
-
     final isPdf = file.path.toLowerCase().endsWith('.pdf');
-
     if (isPdf) {
-      // Navigate to PDF viewer page
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -146,7 +123,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         ),
       );
     } else {
-      // Show image in dialog
       showDialog(
         context: context,
         builder: (context) => Dialog(
@@ -163,7 +139,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -199,7 +174,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                     ],
                   ),
                 ),
-                // Image Content
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -223,22 +197,15 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
       );
-
       if (result != null) {
         final file = File(result.files.single.path!);
         final fileSize = await file.length();
-
-        // Check file size (5MB max)
         if (fileSize > 5 * 1024 * 1024) {
           SnackBarHelper.showError(context, 'File size must be less than 5MB');
           return;
         }
-
         setState(() {
           switch (documentType) {
-            case 'rcBook':
-              _rcBookFile = file;
-              break;
             case 'pan':
               _panFile = file;
               break;
@@ -250,7 +217,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
               break;
           }
         });
-
         SnackBarHelper.showSuccess(context, 'File selected successfully');
       }
     } catch (e) {
@@ -258,77 +224,120 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     }
   }
 
-  void _addVehicle() {
+  void _addVehicle({int? typeIndex}) {
     if (_vehicles.length >= 2) {
       SnackBarHelper.showError(context, 'Maximum 2 vehicles allowed');
       return;
     }
+    final selectedTypeNames = _selectedVehicles
+        .map((i) => vehicleTypesList[i])
+        .toList();
+
+    if (selectedTypeNames.isEmpty) {
+      SnackBarHelper.showError(context, 'Select a vehicle type first');
+      return;
+    }
+
+    String? typeName;
+    if (typeIndex != null) {
+      typeName = vehicleTypesList[typeIndex];
+    } else {
+      final availableType = selectedTypeNames.firstWhere(
+        (name) => !_vehicles.any((v) => v.typeName == name),
+        orElse: () => '',
+      );
+      typeName = availableType.isEmpty ? null : availableType;
+    }
+
+    if (typeName == null ||
+        _vehicles.any((vehicle) => vehicle.typeName == typeName)) {
+      SnackBarHelper.showError(context, 'Selected vehicle type already added');
+      return;
+    }
+
     setState(() {
-      _vehicles.add(VehicleEntry(controller: TextEditingController()));
+      _vehicles.add(
+        VehicleEntry(
+          controller: TextEditingController(),
+          typeName: typeName!,
+          rcBookController: TextEditingController(),
+          maxWeightController: TextEditingController(),
+          type: 'open',
+          weightUnit: 'kg',
+        ),
+      );
     });
   }
 
   void _removeVehicle(int index) {
     setState(() {
       _vehicles[index].controller.dispose();
+      _vehicles[index].rcBookController.dispose();
+      _vehicles[index].maxWeightController.dispose();
       _vehicles.removeAt(index);
+      // Remove from selected vehicles and adjust indices
+      _selectedVehicles.remove(index);
+      // Adjust indices for vehicles after the removed one
+      final indicesToUpdate = _selectedVehicles.where((i) => i > index).toSet();
+      for (int i in indicesToUpdate) {
+        _selectedVehicles.remove(i);
+        _selectedVehicles.add(i - 1);
+      }
     });
+  }
+
+  void _removeVehicleByType(String typeName) {
+    final removalIndex = _vehicles.indexWhere(
+      (vehicle) => vehicle.typeName == typeName,
+    );
+    if (removalIndex != -1) {
+      _vehicles[removalIndex].controller.dispose();
+      _vehicles[removalIndex].rcBookController.dispose();
+      _vehicles[removalIndex].maxWeightController.dispose();
+      _vehicles.removeAt(removalIndex);
+      // Remove from selected vehicles and adjust indices
+      _selectedVehicles.remove(removalIndex);
+      // Adjust indices for vehicles after the removed one
+      final indicesToUpdate = _selectedVehicles
+          .where((i) => i > removalIndex)
+          .toSet();
+      for (int i in indicesToUpdate) {
+        _selectedVehicles.remove(i);
+        _selectedVehicles.add(i - 1);
+      }
+    }
   }
 
   Future<File?> _combineVehicleImages(
     File? frontImage,
     File? rearImage,
-    File? sideImage,
     int vehicleIndex,
     String userId,
   ) async {
     try {
-      // Check if all three images are provided
-      if (frontImage == null || rearImage == null || sideImage == null) {
+      if (frontImage == null || rearImage == null) {
         print('Skipping image combining: Not all images selected');
-        print('Front: $frontImage, Rear: $rearImage, Side: $sideImage');
+        print('Front: $frontImage, Rear: $rearImage');
         return null;
       }
-
       print('Starting image combining for vehicle $vehicleIndex');
-
-      // Decode images
       final frontBytes = await frontImage.readAsBytes();
       final rearBytes = await rearImage.readAsBytes();
-      final sideBytes = await sideImage.readAsBytes();
-
       print(
-        'Read image bytes - Front: ${frontBytes.length}, Rear: ${rearBytes.length}, Side: ${sideBytes.length}',
+        'Read image bytes - Front: ${frontBytes.length}, Rear: ${rearBytes.length}',
       );
-
       final front = img.decodeImage(frontBytes);
       final rear = img.decodeImage(rearBytes);
-      final side = img.decodeImage(sideBytes);
-
-      print(
-        'Decoded images - Front: ${front != null}, Rear: ${rear != null}, Side: ${side != null}',
-      );
-
-      if (front == null || rear == null || side == null) {
-        throw 'Failed to decode images. Front: ${front == null}, Rear: ${rear == null}, Side: ${side == null}';
+      print('Decoded images - Front: ${front != null}, Rear: ${rear != null}');
+      if (front == null || rear == null) {
+        throw 'Failed to decode images. Front: ${front == null}, Rear: ${rear == null}';
       }
-
-      // Resize images to same height (300px) while maintaining aspect ratio
       final targetHeight = 300;
       final resizedFront = img.copyResize(front, height: targetHeight);
       final resizedRear = img.copyResize(rear, height: targetHeight);
-      final resizedSide = img.copyResize(side, height: targetHeight);
-
       print('Resized images successfully');
-
-      // Calculate total width
-      final totalWidth =
-          resizedFront.width + resizedRear.width + resizedSide.width;
-
-      // Create combined image (horizontal layout)
+      final totalWidth = resizedFront.width + resizedRear.width;
       final combined = img.Image(width: totalWidth, height: targetHeight);
-
-      // Copy images side by side
       img.compositeImage(combined, resizedFront, dstX: 0, dstY: 0);
       img.compositeImage(
         combined,
@@ -336,27 +345,15 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         dstX: resizedFront.width,
         dstY: 0,
       );
-      img.compositeImage(
-        combined,
-        resizedSide,
-        dstX: resizedFront.width + resizedRear.width,
-        dstY: 0,
-      );
-
-      // Encode to JPEG
       final combinedBytes = img.encodeJpg(combined, quality: 85);
-
       print(
         'Combined image created successfully, size: ${combinedBytes.length} bytes',
       );
-
-      // Save to temporary file
       final tempDir = await getTemporaryDirectory();
       final combinedFile = File(
         '${tempDir.path}/vehicle_${vehicleIndex}_combined_$userId.jpg',
       );
       await combinedFile.writeAsBytes(combinedBytes);
-
       return combinedFile;
     } catch (e, stackTrace) {
       print('Error combining images: $e');
@@ -365,25 +362,20 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     }
   }
 
-  /// Validates if a file is a valid image that can be decoded
   Future<bool> _isValidImageFile(File? file) async {
     if (file == null) return false;
-
     try {
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) {
         print('Invalid image: File is empty');
         return false;
       }
-
-      // Try to decode the image
       final decodedImage = img.decodeImage(bytes);
       if (decodedImage == null) {
         print('Invalid image: Could not decode image from ${file.path}');
         print('File size: ${bytes.length} bytes');
         return false;
       }
-
       print(
         'Valid image: ${file.path} (${decodedImage.width}x${decodedImage.height})',
       );
@@ -394,19 +386,14 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     }
   }
 
-  /// Validates all three images for a vehicle before combining
   Future<bool> _validateVehicleImages(
     File? frontImage,
     File? rearImage,
-    File? sideImage,
     int vehicleIndex,
   ) async {
     print('Validating images for vehicle $vehicleIndex...');
-
     final isFrontValid = await _isValidImageFile(frontImage);
     final isRearValid = await _isValidImageFile(rearImage);
-    final isSideValid = await _isValidImageFile(sideImage);
-
     if (!isFrontValid) {
       SnackBarHelper.showError(
         context,
@@ -414,7 +401,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       );
       return false;
     }
-
     if (!isRearValid) {
       SnackBarHelper.showError(
         context,
@@ -422,15 +408,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       );
       return false;
     }
-
-    if (!isSideValid) {
-      SnackBarHelper.showError(
-        context,
-        'Vehicle ${vehicleIndex + 1}: Side image is invalid or corrupted',
-      );
-      return false;
-    }
-
     print('All images valid for vehicle $vehicleIndex');
     return true;
   }
@@ -440,7 +417,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       SnackBarHelper.showError(context, 'Please fill all required fields');
       return;
     }
-
     if (_selectedVehicles.isEmpty) {
       SnackBarHelper.showError(
         context,
@@ -448,13 +424,10 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       );
       return;
     }
-
     if (_vehicles.isEmpty) {
       SnackBarHelper.showError(context, 'Please add at least one vehicle');
       return;
     }
-
-    // Check if all vehicles have numbers
     for (int i = 0; i < _vehicles.length; i++) {
       if (_vehicles[i].controller.text.trim().isEmpty) {
         SnackBarHelper.showError(
@@ -464,70 +437,47 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         return;
       }
     }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final sellerProvider = Provider.of<SellerProvider>(context, listen: false);
-
     if (authProvider.user == null) {
       SnackBarHelper.showError(context, 'Please login to continue');
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
-      // Upload documents
-      String? aadharDocId;
       String? panDocId;
       String? licenseDocId;
       String? gstDocId;
-
-      if (_rcBookFile != null) {
-        aadharDocId = await sellerProvider.uploadDocument(
-          _rcBookFile!,
-          'rcbook_${authProvider.user!.id}.${_rcBookFile!.path.split('.').last}',
-        );
-      }
-
       if (_panFile != null) {
         panDocId = await sellerProvider.uploadDocument(
           _panFile!,
           'pan_${authProvider.user!.id}.${_panFile!.path.split('.').last}',
         );
       }
-
       if (_licenseFile != null) {
         licenseDocId = await sellerProvider.uploadDocument(
           _licenseFile!,
           'license_${authProvider.user!.id}.${_licenseFile!.path.split('.').last}',
         );
       }
-
       if (_gstFile != null) {
         gstDocId = await sellerProvider.uploadDocument(
           _gstFile!,
           'gst_${authProvider.user!.id}.${_gstFile!.path.split('.').last}',
         );
       }
-
-      // Upload vehicle documents and images
       List<VehicleInfo> vehicleInfoList = [];
       for (int i = 0; i < _vehicles.length; i++) {
         String? combinedImageId;
-
         try {
           print(
             'Processing vehicle $i with number: ${_vehicles[i].controller.text.trim()}',
           );
-
-          // Validate images before combining
           final imagesValid = await _validateVehicleImages(
             _vehicles[i].frontImage,
             _vehicles[i].rearImage,
-            _vehicles[i].sideImage,
             i,
           );
-
           if (!imagesValid) {
             SnackBarHelper.showError(
               context,
@@ -535,17 +485,12 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             );
             return;
           }
-
-          // Combine the three images into one
           final combinedImage = await _combineVehicleImages(
             _vehicles[i].frontImage,
             _vehicles[i].rearImage,
-            _vehicles[i].sideImage,
             i,
             authProvider.user!.id,
           );
-
-          // Upload the combined image
           if (combinedImage != null) {
             print('Uploading combined image for vehicle $i...');
             combinedImageId = await sellerProvider.uploadDocument(
@@ -555,8 +500,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             print(
               'Successfully uploaded combined image for vehicle $i. ID: $combinedImageId',
             );
-
-            // Delete temporary combined file
             await combinedImage.delete();
           } else {
             print(
@@ -577,31 +520,52 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           rethrow;
         }
 
+        // Upload RC book document for this vehicle
+        String? rcDocId;
+        if (_vehicles[i].rcBookFile != null) {
+          try {
+            rcDocId = await sellerProvider.uploadDocument(
+              _vehicles[i].rcBookFile!,
+              'rc_book_${i}_${authProvider.user!.id}.${_vehicles[i].rcBookFile!.path.split('.').last}',
+            );
+            print(
+              'Successfully uploaded RC document for vehicle $i. ID: $rcDocId',
+            );
+          } catch (e) {
+            print('Error uploading RC document for vehicle $i: $e');
+            SnackBarHelper.showError(
+              context,
+              'Error uploading RC document for vehicle ${i + 1}: $e',
+            );
+            rethrow;
+          }
+        }
+
         vehicleInfoList.add(
           VehicleInfo(
             vehicleNumber: _vehicles[i].controller.text.trim(),
+            vehicleType: _vehicles[i].typeName,
+            type: _vehicles[i].type,
+            rcBookNo: _vehicles[i].rcBookController.text.trim(),
+            maxPassWeight:
+                '${_vehicles[i].maxWeightController.text.trim()} ${_vehicles[i].weightUnit}',
             documentId: combinedImageId,
+            rcDocumentId: rcDocId,
             frontImageId: null,
             rearImageId: null,
             sideImageId: null,
           ),
         );
       }
-
-      // Get selected vehicle types
       final selectedVehicleTypes = _selectedVehicles
           .map((index) => vehicleTypesList[index])
           .toList();
-
-      // Create seller registration
       final success = await sellerProvider.createSellerRegistration(
         userId: authProvider.user!.id,
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         contact: _contactController.text.trim(),
         email: _emailController.text.trim(),
-        rcBookNo: _rcBookController.text.trim(),
-        rcDocumentId: aadharDocId,
         panCardNo: _panController.text.trim(),
         panDocumentId: panDocId,
         drivingLicenseNo: _licenseController.text.trim(),
@@ -611,15 +575,12 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         selectedVehicleTypes: selectedVehicleTypes,
         vehicles: vehicleInfoList,
       );
-
       setState(() => _isLoading = false);
-
       if (!mounted) return;
-
       if (success) {
         SnackBarHelper.showSuccess(
           context,
-          'Seller registration submitted successfully!',
+          'Transporter registration submitted successfully!',
         );
         _showSuccessDialog();
       } else {
@@ -648,13 +609,12 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ],
         ),
         content: const Text(
-          'Your seller registration has been submitted successfully. We will review your application and get back to you soon.',
+          'Your Transporter registration has been submitted successfully. We will review your application and get back to you soon.',
           style: TextStyle(fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () async {
-              // Save seller pending status
               final prefs = await SharedPreferences.getInstance();
               final authProvider = Provider.of<AuthProvider>(
                 context,
@@ -662,10 +622,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
               );
               await prefs.setString('seller_status', 'pending');
               await prefs.setString('seller_user_id', authProvider.user!.id);
-
-              // Delete the current anonymous session
               await authProvider.deleteCurrentAnonymousSession();
-
               Navigator.pop(context); // Close dialog
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
@@ -722,7 +679,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Seller Registration',
+                              'Transporter Registration',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -731,29 +688,29 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                               ),
                             ),
                             const SizedBox(height: 24),
-
                             _buildTextField(
-                              'Name',
-                              'Enter your full name',
+                              'Name / Company Name',
+                              'Enter your full name or company name',
                               _nameController,
                             ),
                             const SizedBox(height: 16),
-
                             _buildTextField(
-                              'Address',
+                              'Residential Address / Company Address',
                               'Enter your address',
                               _addressController,
                             ),
                             const SizedBox(height: 16),
-
                             _buildTextField(
-                              'Contact',
+                              'Contact Number',
                               'Enter contact number',
                               _contactController,
                               keyboardType: TextInputType.phone,
+                              maxLength: 10,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
                             ),
                             const SizedBox(height: 16),
-
                             _buildTextField(
                               'Email',
                               'Enter email address',
@@ -772,16 +729,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                               },
                             ),
                             const SizedBox(height: 16),
-
-                            _buildDocumentField(
-                              'RC Book No.',
-                              'Enter RC book number',
-                              _rcBookController,
-                              'rcBook',
-                              _rcBookFile != null,
-                            ),
-                            const SizedBox(height: 16),
-
                             _buildDocumentField(
                               'Pan Card No',
                               'Enter PAN number',
@@ -790,7 +737,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                               _panFile != null,
                             ),
                             const SizedBox(height: 16),
-
                             _buildDocumentField(
                               'Driving License No:',
                               'Enter license number',
@@ -799,7 +745,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                               _licenseFile != null,
                             ),
                             const SizedBox(height: 16),
-
                             _buildDocumentField(
                               'GST No :',
                               'Enter GST number',
@@ -808,16 +753,12 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                               _gstFile != null,
                             ),
                             const SizedBox(height: 24),
-
                             _buildVehicleSelector(),
                             const SizedBox(height: 16),
-
                             ..._buildVehicleList(),
-
                             const SizedBox(height: 16),
                             if (_vehicles.length < 2) _buildAddVehicleButton(),
                             const SizedBox(height: 24),
-
                             _buildRegisterButton(),
                           ],
                         ),
@@ -852,7 +793,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           _buildTopIcon(Icons.person_outline),
           Row(
             children: [
-              _buildTopIcon(Icons.notifications_outlined),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: () async {
@@ -910,6 +850,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     TextEditingController controller, {
     TextInputType keyboardType = TextInputType.text,
     FormFieldValidator<String>? validator,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -933,6 +875,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           child: TextFormField(
             controller: controller,
             keyboardType: keyboardType,
+            maxLength: maxLength,
+            inputFormatters: inputFormatters,
             validator:
                 validator ??
                 (value) {
@@ -949,6 +893,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 horizontal: 16,
                 vertical: 14,
               ),
+              counterText: '',
             ),
           ),
         ),
@@ -1023,10 +968,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                       File? fileToView;
                       String fileName = '';
                       switch (documentType) {
-                        case 'rcBook':
-                          fileToView = _rcBookFile;
-                          fileName = 'RC Book';
-                          break;
                         case 'pan':
                           fileToView = _panFile;
                           fileName = 'PAN Card';
@@ -1106,20 +1047,24 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             final isSelected = _selectedVehicles.contains(index);
             return GestureDetector(
               onTap: () {
-                setState(() {
-                  if (isSelected) {
+                if (isSelected) {
+                  setState(() {
                     _selectedVehicles.remove(index);
-                  } else {
-                    if (_selectedVehicles.length >= 2) {
-                      SnackBarHelper.showError(
-                        context,
-                        'Maximum 2 vehicle types allowed',
-                      );
-                      return;
-                    }
-                    _selectedVehicles.add(index);
+                    _removeVehicleByType(vehicleTypesList[index]);
+                  });
+                } else {
+                  if (_selectedVehicles.length >= 2) {
+                    SnackBarHelper.showError(
+                      context,
+                      'Maximum 2 vehicle types allowed',
+                    );
+                    return;
                   }
-                });
+                  setState(() {
+                    _selectedVehicles.add(index);
+                  });
+                  _addVehicle(typeIndex: index);
+                }
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -1171,14 +1116,13 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
 
   Widget _buildVehicleEntry(int index) {
     final hasVehicleNumber = _vehicles[index].controller.text.trim().isNotEmpty;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Vehicle No. ${index + 1}',
+              'Vehicle: ${_vehicles[index].typeName}',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1195,7 +1139,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        // Vehicle number field - Full width
         Container(
           decoration: BoxDecoration(
             color: AppColors.white,
@@ -1224,7 +1167,215 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             ),
           ),
         ),
-        // Vehicle Images Section - Show only when vehicle number is entered
+        const SizedBox(height: 12),
+        Text(
+          'Type',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Open'),
+                value: 'open',
+                groupValue: _vehicles[index].type,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _vehicles[index].type = value;
+                  });
+                },
+              ),
+            ),
+            Expanded(
+              child: RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Closed'),
+                value: 'closed',
+                groupValue: _vehicles[index].type,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _vehicles[index].type = value;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Maximum Weight Passing',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.secondary.withOpacity(0.2),
+                  ),
+                ),
+                child: TextFormField(
+                  controller: _vehicles[index].maxWeightController,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter weight',
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight.withOpacity(0.6),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.secondary.withOpacity(0.2),
+                  ),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _vehicles[index].weightUnit,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'kg', child: Text('kg')),
+                      DropdownMenuItem(value: 'tons', child: Text('tons')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _vehicles[index].weightUnit = value;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'RC Book No.',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.secondary.withOpacity(0.2),
+                  ),
+                ),
+                child: TextFormField(
+                  controller: _vehicles[index].rcBookController,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter RC book number',
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight.withOpacity(0.6),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _buildIconButton(
+              Icons.upload_file,
+              () async {
+                FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  type: FileType.any,
+                );
+                if (result != null) {
+                  final file = File(result.files.single.path!);
+                  final fileSize = await file.length();
+                  if (fileSize > 5 * 1024 * 1024) {
+                    SnackBarHelper.showError(
+                      context,
+                      'File size must be less than 5MB',
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _vehicles[index].rcBookFile = file;
+                  });
+                  SnackBarHelper.showSuccess(context, 'RC document selected');
+                }
+              },
+              _vehicles[index].rcBookFile != null
+                  ? AppColors.success
+                  : AppColors.primary,
+            ),
+            const SizedBox(width: 10),
+            _buildIconButton(
+              Icons.visibility_outlined,
+              _vehicles[index].rcBookFile != null
+                  ? () {
+                      _viewFile(
+                        _vehicles[index].rcBookFile,
+                        '${_vehicles[index].typeName} - RC Book',
+                      );
+                    }
+                  : null,
+              _vehicles[index].rcBookFile != null
+                  ? AppColors.primary
+                  : AppColors.secondary.withOpacity(0.3),
+            ),
+          ],
+        ),
         if (hasVehicleNumber)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,7 +1390,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Front Image - Full width button
               _buildFullWidthImageButton(
                 'Front Image',
                 _vehicles[index].frontImage,
@@ -1249,11 +1399,9 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                         type: FileType.custom,
                         allowedExtensions: ['jpg', 'jpeg', 'png'],
                       );
-
                   if (result != null) {
                     final file = File(result.files.single.path!);
                     final fileSize = await file.length();
-
                     if (fileSize > 5 * 1024 * 1024) {
                       SnackBarHelper.showError(
                         context,
@@ -1261,7 +1409,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                       );
                       return;
                     }
-
                     setState(() {
                       _vehicles[index].frontImage = file;
                     });
@@ -1278,7 +1425,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                     : null,
               ),
               const SizedBox(height: 12),
-              // Rear Image - Full width button
               _buildFullWidthImageButton(
                 'Rear Image',
                 _vehicles[index].rearImage,
@@ -1288,11 +1434,9 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                         type: FileType.custom,
                         allowedExtensions: ['jpg', 'jpeg', 'png'],
                       );
-
                   if (result != null) {
                     final file = File(result.files.single.path!);
                     final fileSize = await file.length();
-
                     if (fileSize > 5 * 1024 * 1024) {
                       SnackBarHelper.showError(
                         context,
@@ -1300,7 +1444,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                       );
                       return;
                     }
-
                     setState(() {
                       _vehicles[index].rearImage = file;
                     });
@@ -1312,45 +1455,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                         _viewFile(
                           _vehicles[index].rearImage,
                           'Vehicle ${index + 1} Rear',
-                        );
-                      }
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              // Side Image - Full width button
-              _buildFullWidthImageButton(
-                'Side Image',
-                _vehicles[index].sideImage,
-                () async {
-                  FilePickerResult? result = await FilePicker.platform
-                      .pickFiles(
-                        type: FileType.custom,
-                        allowedExtensions: ['jpg', 'jpeg', 'png'],
-                      );
-
-                  if (result != null) {
-                    final file = File(result.files.single.path!);
-                    final fileSize = await file.length();
-
-                    if (fileSize > 5 * 1024 * 1024) {
-                      SnackBarHelper.showError(
-                        context,
-                        'Image size must be less than 5MB',
-                      );
-                      return;
-                    }
-
-                    setState(() {
-                      _vehicles[index].sideImage = file;
-                    });
-                    SnackBarHelper.showSuccess(context, 'Side image selected');
-                  }
-                },
-                _vehicles[index].sideImage != null
-                    ? () {
-                        _viewFile(
-                          _vehicles[index].sideImage,
-                          'Vehicle ${index + 1} Side',
                         );
                       }
                     : null,
@@ -1491,16 +1595,25 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
 
 class VehicleEntry {
   final TextEditingController controller;
+  final String typeName;
+  final TextEditingController rcBookController;
+  final TextEditingController maxWeightController;
+  String type; // open or closed
+  String weightUnit; // kg or tons
   File? file;
+  File? rcBookFile;
   File? frontImage;
   File? rearImage;
-  File? sideImage;
-
   VehicleEntry({
     required this.controller,
+    required this.typeName,
+    required this.rcBookController,
+    required this.maxWeightController,
+    this.type = 'open',
+    this.weightUnit = 'kg',
     this.file,
+    this.rcBookFile,
     this.frontImage,
     this.rearImage,
-    this.sideImage,
   });
 }

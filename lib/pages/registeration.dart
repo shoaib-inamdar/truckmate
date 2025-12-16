@@ -1,29 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/pages/admin_panel.dart';
-
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({Key? key}) : super(key: key);
-
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
-
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final Set<int> _selectedVehicles = {};
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.darkLight,
-
-      // backgroundColor: AppColors.primary  ,
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFFFAFBFB), Color(0xFF7ECF9A), Color(0xFfFAFBFB)],
-              // stops: [0.25, 0.75],
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
             ),
@@ -51,7 +44,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle('Seller Registration'),
+                          _buildSectionTitle('Transporter Registration'),
                           const SizedBox(height: 24),
                           _buildSimpleTextField('Name', 'Enter your full name'),
                           const SizedBox(height: 16),
@@ -108,7 +101,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
   Widget _buildTopBar() {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -131,7 +123,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
   Widget _buildTopIcon(IconData icon) {
     return Container(
       width: 50,
@@ -144,7 +135,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: Icon(icon, color: AppColors.dark, size: 24),
     );
   }
-
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -156,7 +146,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
   Widget _buildSimpleTextField(String label, String hint) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +181,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ],
     );
   }
-
   Widget _buildTextFieldWithIcons(String label, String hint) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +230,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ],
     );
   }
-
   Widget _buildIconButton(IconData icon) {
     return Container(
       width: 48,
@@ -254,7 +241,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: Icon(icon, size: 22, color: AppColors.dark),
     );
   }
-
   Widget _buildVehicleSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +324,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ],
     );
   }
-
   Widget _buildAddVehicleButton() {
     return InkWell(
       onTap: () {},
@@ -372,7 +357,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
   Widget _buildRegisterButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
@@ -404,7 +388,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
   Widget _buildBottomNav(int currentIndex) {
     return Container(
       decoration: BoxDecoration(

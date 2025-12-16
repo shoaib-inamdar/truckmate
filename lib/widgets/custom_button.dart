@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-// import '../utils/app_colors.dart';
-
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback onPressed;
@@ -12,7 +10,6 @@ class CustomButton extends StatelessWidget {
   final double? width;
   final double height;
   final Widget? icon;
-
   const CustomButton({
     Key? key,
     required this.text,
@@ -25,14 +22,12 @@ class CustomButton extends StatelessWidget {
     this.height = 56,
     this.icon,
   }) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ?? 
         (isOutlined ? Colors.transparent : AppColors.primary);
     final txtColor = textColor ?? 
         (isOutlined ? AppColors.dark : AppColors.dark);
-
     return SizedBox(
       width: width ?? double.infinity,
       height: height,

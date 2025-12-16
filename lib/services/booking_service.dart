@@ -8,18 +8,14 @@ import '../services/appwrite_service.dart';
 
 class BookingService {
   final _appwriteService = AppwriteService();
-
   late final Databases _databases;
   late final Storage _storage;
   late final Account _account;
-
   BookingService() {
     _databases = _appwriteService.databases;
     _storage = Storage(_appwriteService.client);
     _account = _appwriteService.account;
   }
-
-  // Generate unique 6-character alphanumeric booking ID
   String _generateBookingId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
@@ -31,7 +27,6 @@ class BookingService {
     );
   }
 
-  // Check if booking ID already exists
   Future<bool> _bookingIdExists(String bookingId) async {
     try {
       final result = await _databases.listDocuments(
@@ -45,20 +40,16 @@ class BookingService {
     }
   }
 
-  // Generate unique booking ID
   Future<String> _generateUniqueBookingId() async {
     String bookingId;
     bool exists;
-
     do {
       bookingId = _generateBookingId();
       exists = await _bookingIdExists(bookingId);
     } while (exists);
-
     return bookingId;
   }
 
-  // Get current user ID
   Future<String?> _getCurrentUserId() async {
     try {
       final user = await _account.get();
@@ -68,24 +59,19 @@ class BookingService {
     }
   }
 
-  // Upload payment screenshot
   Future<String?> uploadPaymentScreenshot(File file, String bookingId) async {
     try {
       print('Uploading payment screenshot for booking: $bookingId');
-
       final fileSize = await file.length();
       if (fileSize > 5 * 1024 * 1024) {
         throw 'File size exceeds 5MB limit';
       }
-
       final userId = await _getCurrentUserId();
       if (userId == null) {
         throw 'User not authenticated';
       }
-
       final fileName =
           'payment_${bookingId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
       final result = await _storage.createFile(
         bucketId: AppwriteConfig.paymentScreenshotsBucketId,
         fileId: ID.unique(),
@@ -96,7 +82,6 @@ class BookingService {
           Permission.delete(Role.user(userId)),
         ],
       );
-
       print('Payment screenshot uploaded: ${result.$id}');
       return result.$id;
     } on AppwriteException catch (e) {
@@ -108,25 +93,20 @@ class BookingService {
     }
   }
 
-  // Confirm payment
   Future<void> confirmPayment({
     required String bookingId,
     required File paymentScreenshot,
+    required String transactionId,
   }) async {
     try {
       print('Confirming payment for booking: $bookingId');
-
-      // Upload payment screenshot
       final paymentFileId = await uploadPaymentScreenshot(
         paymentScreenshot,
         bookingId,
       );
-
       if (paymentFileId == null) {
         throw 'Failed to upload payment screenshot';
       }
-
-      // Update booking with payment info
       await _databases.updateDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.bookingsCollectionId,
@@ -135,9 +115,9 @@ class BookingService {
           'payment_screenshot_id': paymentFileId,
           'payment_status': 'submitted',
           'payment_date': DateTime.now().toIso8601String(),
+          'payment_transaction_id': transactionId,
         },
       );
-
       print('Payment confirmed successfully');
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -146,25 +126,24 @@ class BookingService {
     }
   }
 
-  // Create a new booking
   Future<BookingModel> createBooking({
     required String userId,
     required String fullName,
     required String phoneNumber,
     required String address,
     required String date,
+    required String load,
     required String loadDescription,
     required String startLocation,
     required String destination,
+    String? fixedLocation,
     required String bidAmount,
     required String vehicleType,
   }) async {
     try {
       print('Creating booking for user: $userId');
-
       final bookingId = await _generateUniqueBookingId();
       print('Generated booking ID: $bookingId');
-
       final data = {
         'booking_id': bookingId,
         'user_id': userId,
@@ -172,18 +151,18 @@ class BookingService {
         'phone_number': phoneNumber,
         'address': address,
         'date': date,
+        'load': load,
         'load_description': loadDescription,
         'start_location': startLocation,
         'destination': destination,
+        'fixed_location': fixedLocation,
         'bid_amount': bidAmount,
-        // Store single required vehicle type (Appwrite schema is `vehicle_type`)
         'vehicle_type': vehicleType,
         'status': 'pending',
         'payment_status': 'pending',
+        'booking_status': 'pending',
       };
-
       print('Booking data: $data');
-
       final doc = await _databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.bookingsCollectionId,
@@ -195,7 +174,6 @@ class BookingService {
           Permission.delete(Role.user(userId)),
         ],
       );
-
       print('Booking created successfully: ${doc.$id}');
       return _documentToBookingModel(doc);
     } on AppwriteException catch (e) {
@@ -209,7 +187,6 @@ class BookingService {
     }
   }
 
-  // Get booking by ID
   Future<BookingModel> getBooking(String bookingId) async {
     try {
       final doc = await _databases.getDocument(
@@ -217,7 +194,6 @@ class BookingService {
         collectionId: AppwriteConfig.bookingsCollectionId,
         documentId: bookingId,
       );
-
       return _documentToBookingModel(doc);
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -226,11 +202,9 @@ class BookingService {
     }
   }
 
-  // Get all bookings for a user
   Future<List<BookingModel>> getUserBookings(String userId) async {
     try {
       print('Getting bookings for user: $userId');
-
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.bookingsCollectionId,
@@ -239,9 +213,7 @@ class BookingService {
           Query.orderDesc(r'$createdAt'),
         ],
       );
-
       print('Found ${result.documents.length} bookings');
-
       return result.documents
           .map((doc) => _documentToBookingModel(doc))
           .toList();
@@ -256,12 +228,9 @@ class BookingService {
     }
   }
 
-  // Get bookings assigned to a seller
   Future<List<BookingModel>> getSellerAssignedBookings(String sellerId) async {
     try {
       print('Getting bookings assigned to seller: $sellerId');
-
-      // First try to fetch bookings explicitly assigned to this seller
       final assignedResult = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.bookingsCollectionId,
@@ -270,31 +239,8 @@ class BookingService {
           Query.orderDesc(r'$createdAt'),
         ],
       );
-
-      if (assignedResult.documents.isNotEmpty) {
-        print('Found ${assignedResult.documents.length} assigned bookings');
-        return assignedResult.documents
-            .map((doc) => _documentToBookingModel(doc))
-            .toList();
-      }
-
-      // If none are assigned yet, fall back to pending bookings so seller sees open jobs
-      print(
-        'No assigned bookings found. Loading pending bookings as fallback.',
-      );
-
-      final pendingResult = await _databases.listDocuments(
-        databaseId: AppwriteConfig.databaseId,
-        collectionId: AppwriteConfig.bookingsCollectionId,
-        queries: [
-          Query.equal('status', 'pending'),
-          Query.orderDesc(r'$createdAt'),
-        ],
-      );
-
-      print('Found ${pendingResult.documents.length} pending bookings');
-
-      return pendingResult.documents
+      print('Found ${assignedResult.documents.length} assigned bookings');
+      return assignedResult.documents
           .map((doc) => _documentToBookingModel(doc))
           .toList();
     } on AppwriteException catch (e) {
@@ -308,7 +254,6 @@ class BookingService {
     }
   }
 
-  // Update booking status
   Future<BookingModel> updateBookingStatus({
     required String bookingId,
     required String status,
@@ -320,7 +265,6 @@ class BookingService {
         documentId: bookingId,
         data: {'status': status},
       );
-
       return _documentToBookingModel(doc);
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -329,7 +273,136 @@ class BookingService {
     }
   }
 
-  // Delete booking
+  /// Assign a booking to a seller
+  /// This updates the assigned_to field to the seller's user ID
+  Future<BookingModel> assignBookingToSeller({
+    required String bookingId,
+    required String sellerId,
+  }) async {
+    try {
+      print('Assigning booking $bookingId to seller: $sellerId');
+      final doc = await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        documentId: bookingId,
+        data: {'assigned_to': sellerId, 'booking_status': 'accepted'},
+      );
+      print('Booking assigned to seller successfully');
+      return _documentToBookingModel(doc);
+    } on AppwriteException catch (e) {
+      print('Appwrite error assigning booking: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error assigning booking: ${e.toString()}');
+      throw 'Failed to assign booking: ${e.toString()}';
+    }
+  }
+
+  /// Start shipping - updates booking status to in_transit
+  /// This should be called when transporter clicks "Start Shipping" button
+  Future<BookingModel> startShipping({required String bookingId}) async {
+    try {
+      print('Starting shipping for booking: $bookingId');
+      final doc = await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        documentId: bookingId,
+        data: {
+          'booking_status': 'in_transit',
+          'journey_state': 'shipping_done',
+        },
+      );
+      print('Shipping started successfully');
+      return _documentToBookingModel(doc);
+    } on AppwriteException catch (e) {
+      print('Appwrite error starting shipping: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error starting shipping: ${e.toString()}');
+      throw 'Failed to start shipping: ${e.toString()}';
+    }
+  }
+
+  /// Complete journey - verifies completion OTP and updates journey_state
+  /// This should be called when transporter enters the completion OTP
+  Future<BookingModel> completeJourney({
+    required String bookingId,
+    required String completionOtp,
+  }) async {
+    try {
+      print('Completing journey for booking: $bookingId');
+
+      // Get the booking to find the customer's user_id
+      final booking = await getBooking(bookingId);
+      final userId = booking.userId;
+
+      print('Fetching completion OTP for user: $userId');
+
+      // Get the user's completion_otp from user_data_collection
+      String? storedOtp;
+      try {
+        final userResult = await _databases.listDocuments(
+          databaseId: AppwriteConfig.databaseId,
+          collectionId: AppwriteConfig.userDataCollectionId,
+          queries: [Query.equal('user_id', userId), Query.limit(1)],
+        );
+
+        if (userResult.documents.isNotEmpty) {
+          storedOtp = userResult.documents.first.data['completion_otp'];
+          print('Stored OTP from user_data_collection: $storedOtp');
+        }
+      } catch (e) {
+        print(
+          'Warning: failed to read completion_otp from user_data_collection: $e',
+        );
+      }
+
+      // Fallback: check booking document itself
+      if (storedOtp == null) {
+        try {
+          final bookingDoc = await _databases.getDocument(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: AppwriteConfig.bookingsCollectionId,
+            documentId: bookingId,
+          );
+          storedOtp = bookingDoc.data['completion_otp'];
+          print('Stored OTP from booking document: $storedOtp');
+        } catch (e) {
+          print(
+            'Warning: failed to read completion_otp from booking document: $e',
+          );
+        }
+      }
+
+      print('Entered OTP: $completionOtp');
+
+      // Verify OTP
+      if (storedOtp == null || storedOtp.toString() != completionOtp.trim()) {
+        throw 'Invalid completion OTP. Please check and try again.';
+      }
+
+      // Update journey_state to journey_completed
+      final doc = await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.bookingsCollectionId,
+        documentId: bookingId,
+        data: {
+          'journey_state': 'journey_completed',
+          'booking_status': 'delivered',
+        },
+      );
+
+      print('Journey completed successfully');
+      return _documentToBookingModel(doc);
+    } on AppwriteException catch (e) {
+      print('Appwrite error completing journey: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error completing journey: ${e.toString()}');
+      rethrow;
+    }
+  }
+
   Future<void> deleteBooking(String bookingId) async {
     try {
       await _databases.deleteDocument(
@@ -344,7 +417,6 @@ class BookingService {
     }
   }
 
-  // Check if user is authenticated
   Future<bool> isUserAuthenticated() async {
     try {
       await _account.get();
@@ -354,7 +426,6 @@ class BookingService {
     }
   }
 
-  // Convert Appwrite document to BookingModel
   BookingModel _documentToBookingModel(models.Document doc) {
     return BookingModel(
       id: doc.$id,
@@ -364,19 +435,24 @@ class BookingService {
       phoneNumber: doc.data['phone_number'] ?? '',
       address: doc.data['address'] ?? '',
       date: doc.data['date'] ?? '',
+      load: doc.data['load'] ?? '',
       loadDescription: doc.data['load_description'] ?? '',
       startLocation: doc.data['start_location'] ?? '',
       destination: doc.data['destination'] ?? '',
+      fixedLocation: doc.data['fixed_location'] ?? '',
       bidAmount: doc.data['bid_amount'] ?? '',
       vehicleType: doc.data['vehicle_type'] ?? '',
       createdAt: DateTime.parse(doc.$createdAt),
       status: doc.data['status'] ?? 'pending',
       assignedTo: doc.data['assigned_to'],
       paymentStatus: doc.data['payment_status'],
+      bookingStatus: doc.data['booking_status'],
+      paymentTransactionId: doc.data['payment_transaction_id'],
+      journeyState: doc.data['journey_state'],
+      completionOtp: doc.data['completion_otp'],
     );
   }
 
-  // Handle Appwrite exceptions
   String _handleAppwriteException(AppwriteException e) {
     switch (e.code) {
       case 401:

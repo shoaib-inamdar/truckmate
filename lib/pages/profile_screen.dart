@@ -11,7 +11,6 @@ import 'package:truckmate/utils/validators.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({Key? key}) : super(key: key);
-
   @override
   State<ProfileCompletionScreen> createState() =>
       _ProfileCompletionScreenState();
@@ -25,6 +24,36 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _checkProfileCompleteness();
+  }
+
+  Future<void> _checkProfileCompleteness() async {
+    if (!mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Check if profile is already complete
+    if (authProvider.user != null &&
+        !authProvider.user!.needsProfileCompletion()) {
+      // Profile is already complete, navigate to BookTransportScreen
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const BookTransportScreen()),
+        (route) => false,
+      );
+    } else if (authProvider.user != null) {
+      // Profile is incomplete, pre-fill the form with existing data
+      setState(() {
+        _nameController.text = authProvider.user!.name;
+        _phoneController.text = authProvider.user!.phone ?? '';
+        _addressController.text = authProvider.user!.address ?? '';
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
@@ -34,24 +63,17 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
 
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
-
     if (!mounted) return;
     setState(() => _isLoading = true);
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    // Update user profile in database
     final success = await authProvider.updateUserProfile(
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
       address: _addressController.text.trim(),
     );
-
     if (!mounted) return;
     setState(() => _isLoading = false);
-
     if (!mounted) return;
-
     if (success) {
       SnackBarHelper.showSuccess(context, 'Profile completed successfully!');
       Navigator.of(context).pushAndRemoveUntil(
@@ -69,7 +91,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -93,8 +114,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-
-                    // Header
                     Center(
                       child: Column(
                         children: [
@@ -141,10 +160,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         ],
                       ),
                     ),
-
                     SizedBox(height: size.height * 0.06),
-
-                    // Name Field
                     CustomTextField(
                       label: 'Full Name',
                       hint: 'Enter your full name',
@@ -156,10 +172,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         color: AppColors.secondary,
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Phone Field
                     CustomTextField(
                       label: 'Phone Number',
                       hint: 'Enter your phone number',
@@ -179,10 +192,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         color: AppColors.secondary,
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Address Field
                     CustomTextField(
                       label: 'Address',
                       hint: 'Enter your address',
@@ -202,10 +212,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         color: AppColors.secondary,
                       ),
                     ),
-
                     const SizedBox(height: 40),
-
-                    // Submit Button
                     CustomButton(
                       text: 'Complete Profile',
                       onPressed: _handleSubmit,
@@ -216,10 +223,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         size: 20,
                       ),
                     ),
-
                     const SizedBox(height: 32),
-
-                    // Info Box
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -264,7 +268,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 40),
                   ],
                 ),

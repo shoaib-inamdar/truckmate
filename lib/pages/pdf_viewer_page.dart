@@ -3,28 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
-
 class PdfViewerPage extends StatefulWidget {
   final File file;
   final String fileName;
-
   const PdfViewerPage({Key? key, required this.file, required this.fileName})
     : super(key: key);
-
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
 }
-
 class _PdfViewerPageState extends State<PdfViewerPage> {
   int? fileSize;
   bool isLoading = true;
-
   @override
   void initState() {
     super.initState();
     loadFileInfo();
   }
-
   Future<void> loadFileInfo() async {
     try {
       final size = await widget.file.length();
@@ -38,11 +32,9 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       });
     }
   }
-
   Future<void> openPdf() async {
     try {
       final result = await OpenFile.open(widget.file.path);
-
       if (result.type != ResultType.done) {
         if (mounted) {
           SnackBarHelper.showError(context, result.message);
@@ -55,7 +47,6 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

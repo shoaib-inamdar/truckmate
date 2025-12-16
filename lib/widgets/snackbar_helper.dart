@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-// import '../utils/app_colors.dart';
-
 class SnackBarHelper {
   static void showSuccess(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -30,7 +28,6 @@ class SnackBarHelper {
       ),
     );
   }
-
   static void showError(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -58,7 +55,6 @@ class SnackBarHelper {
       ),
     );
   }
-
   static void showInfo(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/delivery_detail.dart';
 
 class DeliveryListScreen extends StatelessWidget {
   const DeliveryListScreen({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

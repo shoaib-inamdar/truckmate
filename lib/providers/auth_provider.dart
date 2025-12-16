@@ -3,35 +3,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
-
 enum AuthStatus { uninitialized, authenticated, unauthenticated, loading }
-
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
-
   AuthStatus _status = AuthStatus.uninitialized;
   UserModel? _user;
   String? _errorMessage;
-
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isLoading => _status == AuthStatus.loading;
-
   AuthProvider() {
     _checkAuthStatus();
   }
-
-  // Check if user is already logged in
   Future<void> _checkAuthStatus() async {
     try {
       _status = AuthStatus.loading;
       notifyListeners();
-
       final isLoggedIn = await _authService.isLoggedIn();
-
       if (isLoggedIn) {
         _user = await _userService.getCurrentUserWithProfile();
         _status = AuthStatus.authenticated;
@@ -44,8 +35,6 @@ class AuthProvider with ChangeNotifier {
     }
     notifyListeners();
   }
-
-  // Register new user
   Future<bool> register({
     required String email,
     required String password,
@@ -55,25 +44,19 @@ class AuthProvider with ChangeNotifier {
       _status = AuthStatus.loading;
       _errorMessage = null;
       notifyListeners();
-
       _user = await _authService.register(
         email: email,
         password: password,
         name: name,
       );
-
-      // Create user profile in database
       if (_user != null) {
         await _userService.createOrUpdateUserProfile(
           userId: _user!.id,
           email: _user!.email,
           name: name,
         );
-
-        // Refresh user data to get profile info
         _user = await _userService.getCurrentUserWithProfile();
       }
-
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -84,21 +67,15 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Login user
   Future<bool> login({required String email, required String password}) async {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
       notifyListeners();
-
       _user = await _authService.login(email: email, password: password);
-
-      // Get user profile from database
       if (_user != null) {
         _user = await _userService.getCurrentUserWithProfile();
       }
-
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -109,16 +86,12 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Create anonymous session for sellers
   Future<bool> createAnonymousSession() async {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
       notifyListeners();
-
       _user = await _authService.createAnonymousSession();
-
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -129,8 +102,6 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Delete current anonymous session
   Future<void> deleteCurrentAnonymousSession() async {
     try {
       await _authService.deleteCurrentAnonymousSession();
@@ -141,19 +112,13 @@ class AuthProvider with ChangeNotifier {
       print('Error deleting anonymous session: $e');
     }
   }
-
-  // Set user after email OTP verification
   Future<void> setUserAfterOTP(UserModel user, {String? role}) async {
     try {
       _user = user;
-
-      // Try to get profile from database
       final profile = await _userService.getUserProfile(user.id);
-
       if (profile != null) {
         _user = profile;
       } else {
-        // Create basic profile
         await _userService.createOrUpdateUserProfile(
           userId: user.id,
           email: user.email,
@@ -162,7 +127,6 @@ class AuthProvider with ChangeNotifier {
         );
         _user = await _userService.getCurrentUserWithProfile();
       }
-
       _status = AuthStatus.authenticated;
       notifyListeners();
     } catch (e) {
@@ -170,8 +134,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // Update user profile
   Future<bool> updateUserProfile({
     required String name,
     required String phone,
@@ -181,19 +143,15 @@ class AuthProvider with ChangeNotifier {
       _errorMessage = 'No user logged in';
       return false;
     }
-
     try {
       _status = AuthStatus.loading;
       notifyListeners();
-
       print('=== UPDATE USER PROFILE ===');
       print('User ID: ${_user!.id}');
       print('User Email: ${_user!.email}');
       print('Name: $name');
       print('Phone: $phone');
       print('Address: $address');
-
-      // Validate email format before sending
       if (_user!.email.isEmpty || !_user!.email.contains('@')) {
         print('ERROR: Invalid email format: ${_user!.email}');
         _errorMessage = 'Invalid user email. Please re-login.';
@@ -201,7 +159,6 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
         return false;
       }
-
       _user = await _userService.createOrUpdateUserProfile(
         userId: _user!.id,
         email: _user!.email,
@@ -209,10 +166,8 @@ class AuthProvider with ChangeNotifier {
         phone: phone,
         address: address,
       );
-
       print('Profile updated successfully');
       print('=== END UPDATE USER PROFILE ===');
-
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -223,22 +178,16 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Logout user
   Future<void> logout() async {
     try {
       print('AuthProvider: Starting logout...');
       _status = AuthStatus.loading;
       notifyListeners();
-
       print('AuthProvider: Calling auth service logout...');
       await _authService.logout();
-
-      // Clear startup choice preference to return to role selection
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('startup_choice');
       print('AuthProvider: Cleared startup_choice preference');
-
       print('AuthProvider: Logout successful, clearing state...');
       _user = null;
       _status = AuthStatus.unauthenticated;
@@ -254,15 +203,11 @@ class AuthProvider with ChangeNotifier {
       print('AuthProvider: Error handled, state cleared anyway');
     }
   }
-
-  // Update user name
   Future<bool> updateName(String name) async {
     try {
       _status = AuthStatus.loading;
       notifyListeners();
-
       _user = await _authService.updateName(name);
-
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -273,14 +218,10 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Clear error message
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // Refresh user data
   Future<void> refreshUser() async {
     try {
       _user = await _userService.getCurrentUserWithProfile();

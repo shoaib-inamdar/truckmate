@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:truckmate/pages/admin_panel.dart';
-import 'package:truckmate/pages/favourite.dart';
-import 'package:truckmate/pages/history.dart';
+import 'package:truckmate/pages/customer_dashboard.dart';
+import 'package:truckmate/pages/customer_bookings_list_screen.dart';
+import 'package:truckmate/pages/book_transport.dart';
 import '../constants/colors.dart';
 import '../providers/auth_provider.dart';
 import 'customer_profile_page.dart';
-// import 'admin_panel_screen.dart';
-// import 'history_screen.dart';
-// import 'favourites_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -18,71 +15,33 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    AdminPanelScreen(),
-    HistoryScreen(),
-    FavouritesScreen(),
-  ];
+  void _changeTab(int index) {
+    setState(() => _selectedIndex = index);
+  }
 
+  List<Widget> get _screens => [
+    CustomerDashboard(onTabChange: _changeTab),
+    BookTransportScreen(),
+    CustomerBookingsListScreen(),
+    const CustomerProfilePage(),
+  ];
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ADMIN PANEL'),
+        title: Row(
+          children: [
+            Image.asset('assets/images/logo.png', height: 40, width: 40),
+            const SizedBox(width: 10),
+            const Text('CargoBalancer'),
+          ],
+        ),
         backgroundColor: AppColors.dark,
         foregroundColor: AppColors.primary,
         elevation: 0,
-        centerTitle: true,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const CircleAvatar(
-              backgroundColor: AppColors.light,
-              child: Icon(Icons.person, color: AppColors.dark),
-            ),
-            onSelected: (value) async {
-              print('PopupMenu selected: $value');
-              if (value == 'logout') {
-                print(
-                  'Logout button pressed, calling authProvider.logout()...',
-                );
-                await authProvider.logout();
-                print('Logout method completed');
-                // AuthWrapper will automatically navigate to LoginScreen
-              } else if (value == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CustomerProfilePage(),
-                  ),
-                );
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: AppColors.dark),
-                    SizedBox(width: 10),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: AppColors.danger),
-                    SizedBox(width: 10),
-                    Text('Logout', style: TextStyle(color: AppColors.danger)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+        centerTitle: false,
+        actions: const [],
       ),
       backgroundColor: AppColors.white,
       body: _screens[_selectedIndex],
@@ -91,14 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.secondary,
+        unselectedItemColor: AppColors.white,
+        backgroundColor: AppColors.dark,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favourites',
+            icon: Icon(Icons.local_shipping),
+            label: 'Book',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt),
+            label: 'My Bookings',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

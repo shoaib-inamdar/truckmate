@@ -9,7 +9,6 @@ class UserModel {
   final bool emailVerification;
   final bool phoneVerification;
   final bool isProfileComplete;
-
   UserModel({
     required this.id,
     required this.email,
@@ -22,7 +21,6 @@ class UserModel {
     this.phoneVerification = false,
     this.isProfileComplete = false,
   });
-
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['\$id'] ?? '',
@@ -39,7 +37,6 @@ class UserModel {
       isProfileComplete: json['isProfileComplete'] ?? false,
     );
   }
-
   Map<String, dynamic> toJson() {
     return {
       '\$id': id,
@@ -51,10 +48,8 @@ class UserModel {
       'role': role,
       'emailVerification': emailVerification,
       'phoneVerification': phoneVerification,
-      // isProfileComplete is computed locally, not stored in DB
     };
   }
-
   UserModel copyWith({
     String? id,
     String? email,
@@ -80,8 +75,6 @@ class UserModel {
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
     );
   }
-
-  // Check if user needs to complete profile
   bool needsProfileCompletion() {
     final hasName = name.isNotEmpty;
     final hasPhone = phone != null && phone!.isNotEmpty;

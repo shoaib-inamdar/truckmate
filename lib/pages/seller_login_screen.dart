@@ -6,23 +6,19 @@ import 'package:truckmate/pages/seller_dashboard.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
-
 class SellerLoginScreen extends StatefulWidget {
   final String? approvedUsername;
   final String? approvedPassword;
   final String? approvedEmail;
-
   const SellerLoginScreen({
     Key? key,
     this.approvedUsername,
     this.approvedPassword,
     this.approvedEmail,
   }) : super(key: key);
-
   @override
   State<SellerLoginScreen> createState() => _SellerLoginScreenState();
 }
-
 class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _userIdController = TextEditingController();
@@ -30,11 +26,9 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-
   @override
   void initState() {
     super.initState();
-    // If credentials were passed (approved), auto-fill them
     if (widget.approvedUsername != null && widget.approvedPassword != null) {
       _userIdController.text = widget.approvedUsername!;
       _passwordController.text = widget.approvedPassword!;
@@ -43,7 +37,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       }
     }
   }
-
   @override
   void dispose() {
     _userIdController.dispose();
@@ -51,30 +44,23 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     _emailController.dispose();
     super.dispose();
   }
-
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
     setState(() => _isLoading = true);
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final username = _userIdController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-
     print('=== SELLER LOGIN DEBUG ===');
     print('Attempting login with:');
     print('Username: $username');
     print('Email: $email');
     print('Password: ${password.replaceAll(RegExp(r'.'), '*')}');
-
     bool success = false;
     try {
-      // Attempt login using email and password
       success = await authProvider.login(email: email, password: password);
-
       print('Login result: $success');
       if (!success) {
         print('Error: ${authProvider.errorMessage}');
@@ -83,19 +69,13 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       print('Login exception: ${e.toString()}');
     }
     print('=== END DEBUG ===');
-
     setState(() => _isLoading = false);
-
     if (!mounted) return;
-
     if (success) {
-      // Save seller logged-in status
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('seller_logged_in', 'true');
-      // Clear pending status if it exists
       await prefs.remove('seller_status');
       await prefs.remove('seller_user_id');
-
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const SellerDashboard()),
@@ -108,7 +88,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,7 +104,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Show approved credentials at the top if available
                     if (widget.approvedUsername != null &&
                         widget.approvedPassword != null)
                       Column(
@@ -172,7 +150,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                // Username display
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -204,7 +181,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // Password display
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -241,8 +217,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                           const SizedBox(height: 40),
                         ],
                       ),
-
-                    // Logo/Icon
                     Container(
                       width: 100,
                       height: 100,
@@ -257,10 +231,8 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-
-                    // Title
                     const Text(
-                      'Seller Login',
+                      'Transporter Login',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
@@ -269,7 +241,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
                     Text(
                       'Welcome back to Cargo Balancer',
                       style: TextStyle(
@@ -279,8 +250,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 48),
-
-                    // User ID Field
                     _buildTextField(
                       controller: _userIdController,
                       label: 'User ID',
@@ -294,8 +263,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-
-                    // Email Field
                     _buildTextField(
                       controller: _emailController,
                       label: 'Email',
@@ -312,8 +279,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-
-                    // Password Field
                     _buildTextField(
                       controller: _passwordController,
                       label: 'Password',
@@ -342,8 +307,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       },
                     ),
                     const SizedBox(height: 40),
-
-                    // Login Button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -368,11 +331,8 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Forgot Password Link (optional)
                     TextButton(
                       onPressed: () {
-                        // TODO: Implement forgot password
                         SnackBarHelper.showInfo(
                           context,
                           'Please contact admin to reset password',
@@ -395,7 +355,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       ),
     );
   }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,

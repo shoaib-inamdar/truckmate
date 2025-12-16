@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:truckmate/constants/colors.dart';
-// import '../utils/app_colors.dart';
-
 class CustomTextField extends StatefulWidget {
   final String label;
   final String hint;
@@ -11,7 +9,6 @@ class CustomTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final Widget? prefixIcon;
   final bool showPasswordToggle;
-
   const CustomTextField({
     Key? key,
     required this.label,
@@ -23,20 +20,16 @@ class CustomTextField extends StatefulWidget {
     this.prefixIcon,
     this.showPasswordToggle = false,
   }) : super(key: key);
-
   @override
   State<CustomTextField> createState() => _CustomTextFieldState();
 }
-
 class _CustomTextFieldState extends State<CustomTextField> {
   bool _isObscure = true;
-
   @override
   void initState() {
     super.initState();
     _isObscure = widget.obscureText;
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(

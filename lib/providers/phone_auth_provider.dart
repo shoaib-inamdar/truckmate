@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/phone_auth_service.dart';
-
 enum PhoneAuthStatus {
   initial,
   sendingOTP,
@@ -10,16 +9,13 @@ enum PhoneAuthStatus {
   verified,
   error,
 }
-
 class PhoneAuthProvider with ChangeNotifier {
   final PhoneAuthService _phoneAuthService = PhoneAuthService();
-  
   PhoneAuthStatus _status = PhoneAuthStatus.initial;
   UserModel? _user;
   String? _errorMessage;
   String? _userId; // Store userId after sending OTP
   String? _phoneNumber; // Store phone number
-
   PhoneAuthStatus get status => _status;
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
@@ -27,17 +23,13 @@ class PhoneAuthProvider with ChangeNotifier {
   String? get phoneNumber => _phoneNumber;
   bool get isLoading => _status == PhoneAuthStatus.sendingOTP || 
                         _status == PhoneAuthStatus.verifyingOTP;
-
-  // Send OTP to phone number
   Future<bool> sendOTP(String phoneNumber) async {
     try {
       _status = PhoneAuthStatus.sendingOTP;
       _errorMessage = null;
       _phoneNumber = phoneNumber;
       notifyListeners();
-
       _userId = await _phoneAuthService.sendOTP(phoneNumber: phoneNumber);
-
       _status = PhoneAuthStatus.otpSent;
       notifyListeners();
       return true;
@@ -48,8 +40,6 @@ class PhoneAuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Verify OTP
   Future<bool> verifyOTP(String otp) async {
     if (_userId == null) {
       _errorMessage = 'Please send OTP first';
@@ -57,17 +47,14 @@ class PhoneAuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
-
     try {
       _status = PhoneAuthStatus.verifyingOTP;
       _errorMessage = null;
       notifyListeners();
-
       _user = await _phoneAuthService.verifyOTP(
         userId: _userId!,
         otp: otp,
       );
-
       _status = PhoneAuthStatus.verified;
       notifyListeners();
       return true;
@@ -78,8 +65,6 @@ class PhoneAuthProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Resend OTP
   Future<bool> resendOTP() async {
     if (_phoneNumber == null) {
       _errorMessage = 'Phone number not found';
@@ -87,11 +72,8 @@ class PhoneAuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
-
     return await sendOTP(_phoneNumber!);
   }
-
-  // Logout
   Future<void> logout() async {
     try {
       await _phoneAuthService.logout();
@@ -106,14 +88,10 @@ class PhoneAuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // Clear error
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // Reset state
   void reset() {
     _status = PhoneAuthStatus.initial;
     _userId = null;
@@ -121,8 +99,6 @@ class PhoneAuthProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // Check if logged in
   Future<bool> checkAuthStatus() async {
     try {
       final isLoggedIn = await _phoneAuthService.isLoggedIn();

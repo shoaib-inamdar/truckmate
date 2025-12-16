@@ -10,7 +10,6 @@ import 'package:truckmate/widgets/snackbar_helper.dart';
 
 class SellerProfilePage extends StatefulWidget {
   const SellerProfilePage({Key? key}) : super(key: key);
-
   @override
   State<SellerProfilePage> createState() => _SellerProfilePageState();
 }
@@ -18,19 +17,18 @@ class SellerProfilePage extends StatefulWidget {
 class _SellerProfilePageState extends State<SellerProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _sellerService = SellerService();
-
   bool _isLoading = false;
+  bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
   bool _isEditingUsername = false;
   bool _isEditingPassword = false;
-
   String? _currentUsername;
   String? _userId;
-
   @override
   void initState() {
     super.initState();
@@ -40,6 +38,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -47,16 +46,49 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
 
   Future<void> _loadCurrentUsername() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _userId = authProvider.user?.id;
+    final sellerEmail = authProvider.user?.email;
 
-    if (_userId != null) {
-      final credentials = await _sellerService.getSellerCredentials(_userId!);
+    if (sellerEmail == null) {
+      print('❌ SellerProfile: No email found');
+      return;
+    }
+
+    print('🔵 SellerProfile: Fetching credentials for email: $sellerEmail');
+
+    try {
+      // Get the original user_id using email
+      final originalUserId = await _sellerService.getOriginalUserIdByEmail(
+        sellerEmail,
+      );
+
+      if (originalUserId == null) {
+        print('❌ SellerProfile: Could not find original user_id');
+        return;
+      }
+
+      print('🔵 SellerProfile: Found original user_id: $originalUserId');
+      _userId = originalUserId;
+
+      // Now fetch credentials using the original user_id
+      final credentials = await _sellerService.getSellerCredentials(
+        originalUserId,
+      );
+
       if (credentials != null && mounted) {
+        print(
+          '✅ SellerProfile: Credentials loaded - username: ${credentials['username']}',
+        );
         setState(() {
           _currentUsername = credentials['username'];
           _usernameController.text = _currentUsername ?? '';
+          // Auto-fill current password from seller_request table
+          _currentPasswordController.text = credentials['password'] ?? '';
         });
+      } else {
+        print('❌ SellerProfile: No credentials found');
       }
+    } catch (e) {
+      print('❌ SellerProfile: Error loading credentials: $e');
     }
   }
 
@@ -64,25 +96,19 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
     final newUsername = _usernameController.text.trim();
     if (newUsername == _currentUsername) {
       SnackBarHelper.showError(context, 'Username is the same as current');
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
       final success = await _sellerService.updateSellerUsername(
         userId: _userId!,
         newUsername: newUsername,
       );
-
       setState(() => _isLoading = false);
-
       if (!mounted) return;
-
       if (success) {
         SnackBarHelper.showSuccess(context, 'Username updated successfully');
         setState(() {
@@ -103,15 +129,19 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
+    final currentPassword = _currentPasswordController.text.trim();
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (currentPassword.isEmpty) {
+      SnackBarHelper.showError(context, 'Current password is required');
+      return;
+    }
 
     if (newPassword != confirmPassword) {
       SnackBarHelper.showError(context, 'Passwords do not match');
       return;
     }
-
     if (newPassword.length < 8) {
       SnackBarHelper.showError(
         context,
@@ -119,23 +149,20 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
       );
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
       final success = await _sellerService.updateSellerPassword(
         userId: _userId!,
+        oldPassword: currentPassword,
         newPassword: newPassword,
       );
-
       setState(() => _isLoading = false);
-
       if (!mounted) return;
-
       if (success) {
         SnackBarHelper.showSuccess(context, 'Password updated successfully');
         setState(() {
           _isEditingPassword = false;
+          _currentPasswordController.clear();
           _newPasswordController.clear();
           _confirmPasswordController.clear();
         });
@@ -150,7 +177,6 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
   }
 
   Future<void> _handleDeleteAccount() async {
-    // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -190,36 +216,24 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
         ],
       ),
     );
-
     if (confirmed != true) return;
-
     setState(() => _isLoading = true);
-
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
       final success = await _sellerService.deleteSellerAccount(
         userId: _userId!,
       );
-
       setState(() => _isLoading = false);
-
       if (!mounted) return;
-
       if (success) {
-        // Clear preferences and logout
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('seller_logged_in');
         await prefs.remove('startup_choice');
         await prefs.remove('seller_status');
         await prefs.remove('seller_user_id');
         await authProvider.logout();
-
         if (!mounted) return;
-
         SnackBarHelper.showSuccess(context, 'Account deleted successfully');
-
-        // Navigate to login screen
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
           (route) => false,
@@ -234,22 +248,30 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('startup_choice');
+    await prefs.remove('seller_logged_in');
+    await authProvider.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const ChooseLoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: const Text('Seller Profile'),
+        title: const Text('Transporter Profile'),
         backgroundColor: AppColors.dark,
         foregroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: LoadingOverlay(
         isLoading: _isLoading,
@@ -262,19 +284,12 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // User Info Card
                   _buildInfoCard(authProvider),
                   const SizedBox(height: 24),
-
-                  // Username Section
                   _buildUsernameSection(),
                   const SizedBox(height: 24),
-
-                  // Password Section
                   _buildPasswordSection(),
                   const SizedBox(height: 24),
-
-                  // Danger Zone
                   _buildDangerZone(),
                 ],
               ),
@@ -334,7 +349,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              'Seller Account',
+              'Transporter Account',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -394,7 +409,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
           const SizedBox(height: 16),
           if (!_isEditingUsername)
             Text(
-              _currentUsername ?? 'Loading...',
+              _currentUsername ?? 'Not loaded',
               style: const TextStyle(fontSize: 16, color: AppColors.textDark),
             )
           else
@@ -531,11 +546,49 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
             Column(
               children: [
                 TextFormField(
+                  controller: _currentPasswordController,
+                  obscureText: _obscureCurrentPassword,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Current password is required';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter current password',
+                    filled: true,
+                    fillColor: AppColors.light,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureCurrentPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: AppColors.textLight,
+                      ),
+                      onPressed: () {
+                        setState(
+                          () => _obscureCurrentPassword =
+                              !_obscureCurrentPassword,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
                   controller: _newPasswordController,
                   obscureText: _obscureNewPassword,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Password is required';
+                      return 'New password is required';
                     }
                     if (value.trim().length < 8) {
                       return 'Password must be at least 8 characters';
@@ -697,6 +750,23 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
             style: TextStyle(fontSize: 14, color: AppColors.textLight),
           ),
           const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _handleLogout,
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: AppColors.dark,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(

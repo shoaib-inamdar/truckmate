@@ -6,18 +6,14 @@ import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/services/user_service.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
-
 class CustomerProfilePage extends StatefulWidget {
   const CustomerProfilePage({Key? key}) : super(key: key);
-
   @override
   State<CustomerProfilePage> createState() => _CustomerProfilePageState();
 }
-
 class _CustomerProfilePageState extends State<CustomerProfilePage> {
   bool _isProcessing = false;
   final _userService = UserService();
-
   Future<void> _handleLogout() async {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
@@ -30,13 +26,11 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       (route) => false,
     );
   }
-
   Future<void> _handleDeleteAccount() async {
     if (_isProcessing) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     if (user == null) return;
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -59,11 +53,8 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         ],
       ),
     );
-
     if (confirm != true) return;
-
     setState(() => _isProcessing = true);
-
     try {
       await _userService.deleteUserProfile(user.id);
       await authProvider.logout();
@@ -82,12 +73,10 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       setState(() => _isProcessing = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
-
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -122,7 +111,6 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       ),
     );
   }
-
   Widget _buildInfoCard(user) {
     return Container(
       width: double.infinity,
@@ -173,7 +161,6 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       ),
     );
   }
-
   Widget _buildContactCard(user) {
     return Container(
       width: double.infinity,
@@ -213,7 +200,6 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       ),
     );
   }
-
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -246,7 +232,6 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       ),
     );
   }
-
   Widget _buildDangerZone() {
     return Container(
       width: double.infinity,

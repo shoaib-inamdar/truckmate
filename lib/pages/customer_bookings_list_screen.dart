@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/models/booking_model.dart';
-// import 'package:truckmate/pages/customer_booking_detail.dart';
 import 'package:truckmate/pages/customer_booking_detail_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
@@ -10,7 +9,6 @@ import 'package:truckmate/widgets/loading_overlay.dart';
 
 class CustomerBookingsListScreen extends StatefulWidget {
   const CustomerBookingsListScreen({Key? key}) : super(key: key);
-
   @override
   State<CustomerBookingsListScreen> createState() =>
       _CustomerBookingsListScreenState();
@@ -19,7 +17,6 @@ class CustomerBookingsListScreen extends StatefulWidget {
 class _CustomerBookingsListScreenState
     extends State<CustomerBookingsListScreen> {
   bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
@@ -32,7 +29,6 @@ class _CustomerBookingsListScreenState
       context,
       listen: false,
     );
-
     if (authProvider.user != null) {
       setState(() => _isLoading = true);
       await bookingProvider.loadUserBookings(authProvider.user!.id);
@@ -57,10 +53,85 @@ class _CustomerBookingsListScreenState
     }
   }
 
+  Color _getJourneyStateColor(String? journeyState) {
+    switch (journeyState) {
+      case 'pending':
+        return AppColors.warning;
+      case 'payment_done':
+        return Colors.blue;
+      case 'shipping_done':
+        return Colors.orange;
+      case 'journey_completed':
+        return AppColors.success;
+      default:
+        return AppColors.secondary;
+    }
+  }
+
+  String _getJourneyStateLabel(String? journeyState) {
+    switch (journeyState) {
+      case 'pending':
+        return 'Pending Payment';
+      case 'payment_done':
+        return 'Payment Done';
+      case 'shipping_done':
+        return 'In Transit';
+      case 'journey_completed':
+        return 'Journey Completed';
+      default:
+        return 'Not Started';
+    }
+  }
+
+  String _formatDateOnly(String date) {
+    try {
+      // Remove time portion if present
+      if (date.contains('T')) {
+        return date.split('T')[0];
+      }
+      // Remove time if format is "YYYY-MM-DD HH:MM:SS"
+      if (date.contains(' ')) {
+        return date.split(' ')[0];
+      }
+      return date;
+    } catch (e) {
+      return date;
+    }
+  }
+
+  Color _getPaymentStatusColor(String? paymentStatus) {
+    switch (paymentStatus?.toLowerCase()) {
+      case 'submitted':
+        return Colors.blue;
+      case 'pending':
+        return Colors.orange;
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getPaymentStatusLabel(String? paymentStatus) {
+    switch (paymentStatus?.toLowerCase()) {
+      case 'submitted':
+        return 'Submitted';
+      case 'pending':
+        return 'Pending Review';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return 'Not Submitted';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       backgroundColor: AppColors.white,
       body: LoadingOverlay(
@@ -69,7 +140,6 @@ class _CustomerBookingsListScreenState
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(),
               Expanded(
                 child: Consumer<BookingProvider>(
                   builder: (context, bookingProvider, child) {
@@ -82,7 +152,6 @@ class _CustomerBookingsListScreenState
                         ),
                       );
                     }
-
                     if (bookingProvider.bookings.isEmpty) {
                       return Center(
                         child: Column(
@@ -114,7 +183,6 @@ class _CustomerBookingsListScreenState
                         ),
                       );
                     }
-
                     return RefreshIndicator(
                       color: AppColors.primary,
                       onRefresh: _loadBookings,
@@ -130,7 +198,6 @@ class _CustomerBookingsListScreenState
                   },
                 ),
               ),
-              _buildBottomNav(1),
             ],
           ),
         ),
@@ -185,56 +252,6 @@ class _CustomerBookingsListScreenState
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: AppColors.dark,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Builder(
-            builder: (context) => InkWell(
-              onTap: () => Scaffold.of(context).openDrawer(),
-              child: _buildTopIcon(Icons.person_outline),
-            ),
-          ),
-          const Text(
-            'MY BOOKINGS',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.white,
-              letterSpacing: 1,
-            ),
-          ),
-          _buildTopIcon(Icons.notifications_outlined),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopIcon(IconData icon) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary, width: 2),
-        color: AppColors.darkLight,
-      ),
-      child: Icon(icon, color: AppColors.primary, size: 24),
-    );
-  }
-
   Widget _buildBookingCard(BookingModel booking) {
     return GestureDetector(
       onTap: () {
@@ -270,7 +287,7 @@ class _CustomerBookingsListScreenState
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: AppColors.success,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -293,7 +310,7 @@ class _CustomerBookingsListScreenState
                       const Icon(
                         Icons.arrow_forward,
                         size: 20,
-                        color: AppColors.primary,
+                        color: AppColors.success,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -312,7 +329,7 @@ class _CustomerBookingsListScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Date: ${booking.date}',
+                    'Date: ${_formatDateOnly(booking.date)}',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textLight,
@@ -339,6 +356,64 @@ class _CustomerBookingsListScreenState
                       ),
                     ),
                   ),
+                  // Show payment status badge
+                  if (booking.paymentStatus != null &&
+                      booking.paymentStatus!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getPaymentStatusColor(
+                          booking.paymentStatus,
+                        ).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _getPaymentStatusColor(booking.paymentStatus),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _getPaymentStatusLabel(booking.paymentStatus),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _getPaymentStatusColor(booking.paymentStatus),
+                        ),
+                      ),
+                    ),
+                  ],
+                  // Show journey state badge when journey is completed or in progress
+                  if (booking.journeyState != null &&
+                      booking.journeyState!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getJourneyStateColor(
+                          booking.journeyState,
+                        ).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _getJourneyStateColor(booking.journeyState),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _getJourneyStateLabel(booking.journeyState),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _getJourneyStateColor(booking.journeyState),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -346,7 +421,7 @@ class _CustomerBookingsListScreenState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AppColors.success.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
@@ -357,43 +432,6 @@ class _CustomerBookingsListScreenState
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNav(int currentIndex) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pop(context);
-          }
-        },
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.secondary,
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star_border),
-            label: 'Favourites',
-          ),
-        ],
       ),
     );
   }

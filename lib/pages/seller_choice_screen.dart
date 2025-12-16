@@ -6,32 +6,24 @@ import 'package:truckmate/pages/seller_login_screen.dart';
 import 'package:truckmate/pages/seller_dashboard.dart';
 import 'package:truckmate/pages/seller_waiting_confirmation.dart';
 import 'package:truckmate/main.dart' hide AppColors;
-
 class SellerChoiceScreen extends StatefulWidget {
   const SellerChoiceScreen({Key? key}) : super(key: key);
-
   @override
   State<SellerChoiceScreen> createState() => _SellerChoiceScreenState();
 }
-
 class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
   bool _isCheckingStatus = true;
-
   @override
   void initState() {
     super.initState();
     _checkSellerStatus();
   }
-
   Future<void> _checkSellerStatus() async {
-    // Check if seller has pending registration or is logged in
     final prefs = await SharedPreferences.getInstance();
     final savedStatus = prefs.getString('seller_status');
     final savedUserId = prefs.getString('seller_user_id');
     final isLoggedIn = prefs.getString('seller_logged_in');
-
     if (mounted) {
-      // If seller is logged in, show dashboard
       if (isLoggedIn == 'true') {
         Navigator.pushAndRemoveUntil(
           context,
@@ -40,8 +32,6 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
         );
         return;
       }
-
-      // If seller has pending registration, show waiting screen
       if (savedStatus == 'pending' && savedUserId != null) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -52,12 +42,9 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
         );
         return;
       }
-
-      // No saved status, show the choice screen
       setState(() => _isCheckingStatus = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     if (_isCheckingStatus) {
@@ -80,10 +67,8 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
         ),
       );
     }
-
     final size = MediaQuery.of(context).size;
     final horizontalPadding = size.width > 600 ? size.width * 0.25 : 40.0;
-
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -92,7 +77,6 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.dark),
           onPressed: () async {
-            // Clear startup_choice when going back
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('startup_choice');
             if (!context.mounted) return;
@@ -128,13 +112,12 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
       ),
     );
   }
-
   Widget _buildHeader() {
     return Column(
       children: [
         const SizedBox(height: 10),
         const Text(
-          'Welcome, Seller!',
+          'Welcome, Transporter!',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -155,7 +138,6 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
       ],
     );
   }
-
   Widget _buildRegisterButton(BuildContext context) {
     return InkWell(
       onTap: () {
@@ -191,7 +173,7 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Register as\nNew Seller',
+              'Register as\nNew Transporter',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -202,7 +184,7 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Create your seller account',
+              'Create your Transporter account',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -215,7 +197,6 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
       ),
     );
   }
-
   Widget _buildLoginButton(BuildContext context) {
     return InkWell(
       onTap: () {
@@ -262,7 +243,7 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Access your seller dashboard',
+              'Access your Transporter dashboard',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -275,7 +256,6 @@ class _SellerChoiceScreenState extends State<SellerChoiceScreen> {
       ),
     );
   }
-
   Widget _buildDivider() {
     return Row(
       children: [

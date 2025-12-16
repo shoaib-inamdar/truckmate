@@ -8,18 +8,14 @@ import '../services/appwrite_service.dart';
 
 class SellerService {
   final _appwriteService = AppwriteService();
-
   late final Databases _databases;
   late final Storage _storage;
   late final Account _account;
-
   SellerService() {
     _databases = _appwriteService.databases;
     _storage = Storage(_appwriteService.client);
     _account = _appwriteService.account;
   }
-
-  // Get current user ID
   Future<String?> _getCurrentUserId() async {
     try {
       final user = await _account.get();
@@ -29,26 +25,18 @@ class SellerService {
     }
   }
 
-  // Upload file to Appwrite Storage
   Future<String?> uploadDocument(File file, String fileName) async {
     try {
       print('Uploading file: $fileName');
-
-      // Check file size (max 5MB)
       final fileSize = await file.length();
       if (fileSize > 5 * 1024 * 1024) {
         throw 'File size exceeds 5MB limit';
       }
-
-      // Get current user ID for permissions
       final userId = await _getCurrentUserId();
       if (userId == null) {
         throw 'User not authenticated';
       }
-
       print('Uploading file for user: $userId');
-
-      // Upload file with explicit permissions
       final result = await _storage.createFile(
         bucketId: AppwriteConfig.sellerDocumentsBucketId,
         fileId: ID.unique(),
@@ -59,7 +47,6 @@ class SellerService {
           Permission.delete(Role.user(userId)),
         ],
       );
-
       print('File uploaded successfully: ${result.$id}');
       return result.$id;
     } on AppwriteException catch (e) {
@@ -73,12 +60,10 @@ class SellerService {
     }
   }
 
-  // Get file preview/download URL
   String getFileView(String fileId) {
     return '${AppwriteConfig.endpoint}/storage/buckets/${AppwriteConfig.sellerDocumentsBucketId}/files/$fileId/view?project=${AppwriteConfig.projectId}';
   }
 
-  // Delete file from storage
   Future<void> deleteDocument(String fileId) async {
     try {
       await _storage.deleteFile(
@@ -88,16 +73,12 @@ class SellerService {
       print('File deleted successfully: $fileId');
     } on AppwriteException catch (e) {
       print('Error deleting file: ${e.message}');
-      // Don't throw error for file deletion failures
     }
   }
 
-  // Create seller registration
-  // Check seller registration status
   Future<String?> checkSellerStatus(String userId) async {
     try {
       print('Checking seller status for user: $userId');
-
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -107,11 +88,9 @@ class SellerService {
           Query.limit(1),
         ],
       );
-
       if (result.documents.isEmpty) {
         return null;
       }
-
       final status = result.documents.first.data['status'] ?? 'pending';
       print('Seller status: $status');
       return status;
@@ -130,8 +109,6 @@ class SellerService {
     required String address,
     required String contact,
     required String email,
-    required String rcBookNo,
-    String? rcDocumentId,
     required String panCardNo,
     String? panDocumentId,
     required String drivingLicenseNo,
@@ -143,21 +120,20 @@ class SellerService {
   }) async {
     try {
       print('Creating seller registration for user: $userId');
-
-      // Generate default credentials for the seller
       final username = _generateUsername(name);
       final password = _generatePassword();
-
       print(
         'Generated credentials - username: $username, password: ${password.replaceAll(RegExp(r'.'), '*')}',
       );
-
-      // Convert vehicles to compact string format for Appwrite (max 100 chars per string)
-      // Format: vehicleNumber|documentId|frontId|rearId|sideId
       final vehiclesStrings = vehicles.map((v) {
         final parts = [
           v.vehicleNumber,
+          v.vehicleType,
+          v.type,
+          v.rcBookNo,
+          v.maxPassWeight,
           v.documentId ?? '',
+          v.rcDocumentId ?? '',
           v.frontImageId ?? '',
           v.rearImageId ?? '',
           v.sideImageId ?? '',
@@ -173,8 +149,6 @@ class SellerService {
         'email': email,
         'username': username,
         'password': password,
-        'rc_book_no': rcBookNo,
-        'rc_document_id': rcDocumentId ?? '',
         'pan_card_no': panCardNo,
         'pan_document_id': panDocumentId ?? '',
         'driving_license_no': drivingLicenseNo,
@@ -186,8 +160,18 @@ class SellerService {
         'status': 'pending',
       };
 
+      // Populate individual vehicle columns for up to 2 vehicles
+      if (vehicles.isNotEmpty) {
+        data['type'] = vehicles[0].type;
+        data['max_pass_weight'] = vehicles[0].maxPassWeight;
+        data['rc_book_no_1'] = vehicles[0].rcBookNo;
+        data['rc_document_id_1'] = vehicles[0].rcDocumentId ?? '';
+      }
+      if (vehicles.length > 1) {
+        data['rc_book_no_2'] = vehicles[1].rcBookNo;
+        data['rc_document_id_2'] = vehicles[1].rcDocumentId ?? '';
+      }
       print('Seller data: $data');
-
       final doc = await _databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -199,18 +183,12 @@ class SellerService {
           Permission.delete(Role.user(userId)),
         ],
       );
-
       print('Seller registration created successfully: ${doc.$id}');
       return _documentToSellerModel(doc);
     } on AppwriteException catch (e) {
       print(
         'Appwrite error in createSellerRegistration: Code ${e.code}, Message: ${e.message}, Response: ${e.response}',
       );
-
-      // If registration fails, cleanup uploaded files
-      if (rcDocumentId != null && rcDocumentId.isNotEmpty) {
-        await deleteDocument(rcDocumentId);
-      }
       if (panDocumentId != null && panDocumentId.isNotEmpty) {
         await deleteDocument(panDocumentId);
       }
@@ -224,8 +202,10 @@ class SellerService {
         if (vehicle.documentId != null && vehicle.documentId!.isNotEmpty) {
           await deleteDocument(vehicle.documentId!);
         }
+        if (vehicle.rcDocumentId != null && vehicle.rcDocumentId!.isNotEmpty) {
+          await deleteDocument(vehicle.rcDocumentId!);
+        }
       }
-
       throw _handleAppwriteException(e);
     } catch (e) {
       print('General error in createSellerRegistration: ${e.toString()}');
@@ -233,7 +213,6 @@ class SellerService {
     }
   }
 
-  // Get seller registration by user ID
   Future<SellerModel?> getSellerRegistration(String userId) async {
     try {
       final result = await _databases.listDocuments(
@@ -241,11 +220,9 @@ class SellerService {
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
         queries: [Query.equal('user_id', userId)],
       );
-
       if (result.documents.isEmpty) {
         return null;
       }
-
       return _documentToSellerModel(result.documents.first);
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -254,7 +231,34 @@ class SellerService {
     }
   }
 
-  // Get seller display name by user ID from seller_request
+  Future<String?> getOriginalUserIdByEmail(String email) async {
+    try {
+      print('Getting original user_id for email: $email');
+      final result = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [
+          Query.equal('email', email),
+          Query.orderDesc(r'$createdAt'),
+          Query.limit(1),
+        ],
+      );
+      if (result.documents.isEmpty) {
+        print('No seller found with email: $email');
+        return null;
+      }
+      final userId = result.documents.first.data['user_id'] as String?;
+      print('Found original user_id: $userId for email: $email');
+      return userId;
+    } on AppwriteException catch (e) {
+      print('Appwrite error in getOriginalUserIdByEmail: ${e.message}');
+      return null;
+    } catch (e) {
+      print('Error getting original user_id: ${e.toString()}');
+      return null;
+    }
+  }
+
   Future<String?> getSellerNameByUserId(String userId) async {
     try {
       final result = await _databases.listDocuments(
@@ -266,7 +270,6 @@ class SellerService {
           Query.limit(1),
         ],
       );
-
       if (result.documents.isEmpty) return null;
       final doc = result.documents.first;
       final name = doc.data['name'] as String?;
@@ -280,7 +283,6 @@ class SellerService {
     }
   }
 
-  // Update seller registration status
   Future<SellerModel> updateSellerStatus({
     required String sellerId,
     required String status,
@@ -292,7 +294,6 @@ class SellerService {
         documentId: sellerId,
         data: {'status': status},
       );
-
       return _documentToSellerModel(doc);
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -301,11 +302,95 @@ class SellerService {
     }
   }
 
-  // Get seller request credentials (username, email, and password)
+  Future<bool> deleteSellerRequest(String sellerId) async {
+    try {
+      print('Deleting seller request: $sellerId');
+      await _databases.deleteDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        documentId: sellerId,
+      );
+      print('✓ Seller request deleted successfully: $sellerId');
+      return true;
+    } on AppwriteException catch (e) {
+      print('AppwriteException in deleteSellerRequest: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error deleting seller request: ${e.toString()}');
+      throw 'Failed to delete seller request: ${e.toString()}';
+    }
+  }
+
+  Future<bool> updateAvailabilityByUserId({
+    required String userId,
+    required String availability,
+    String? returnLocation,
+  }) async {
+    try {
+      print(
+        '🟡 SellerService.updateAvailabilityByUserId: Called with userId=$userId, availability=$availability',
+      );
+      // Find latest seller_request document for this user
+      print(
+        '🟡 SellerService.updateAvailabilityByUserId: Querying seller_request collection...',
+      );
+      final result = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [
+          Query.equal('user_id', userId),
+          Query.orderDesc(r'$createdAt'),
+          Query.limit(1),
+        ],
+      );
+      print(
+        '🟡 SellerService.updateAvailabilityByUserId: Query result - found ${result.documents.length} documents',
+      );
+      if (result.documents.isEmpty) {
+        print(
+          '❌ SellerService.updateAvailabilityByUserId: No seller registration found for user $userId',
+        );
+        throw 'Seller registration not found for user';
+      }
+      final docId = result.documents.first.$id;
+      print(
+        '🟡 SellerService.updateAvailabilityByUserId: Found document $docId, preparing update...',
+      );
+      final data = {
+        'availability': availability,
+        'return_location': availability == 'return_available'
+            ? (returnLocation ?? '')
+            : '',
+      };
+      print(
+        '🟡 SellerService.updateAvailabilityByUserId: Updating document with data: $data',
+      );
+      await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        documentId: docId,
+        data: data,
+      );
+      print(
+        '✅ SellerService.updateAvailabilityByUserId: Document updated successfully',
+      );
+      return true;
+    } on AppwriteException catch (e) {
+      print(
+        '❌ SellerService.updateAvailabilityByUserId: Appwrite error - Code ${e.code}, Message: ${e.message}',
+      );
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print(
+        '❌ SellerService.updateAvailabilityByUserId: Exception - ${e.toString()}',
+      );
+      throw 'Failed to update availability: ${e.toString()}';
+    }
+  }
+
   Future<Map<String, String>?> getSellerCredentials(String userId) async {
     try {
       print('Fetching seller credentials for user: $userId');
-
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -315,27 +400,21 @@ class SellerService {
           Query.limit(1),
         ],
       );
-
       if (result.documents.isEmpty) {
         print('No seller documents found');
         return null;
       }
-
       final doc = result.documents.first;
       final username = doc.data['username'] as String?;
       final password = doc.data['password'] as String?;
       final email = doc.data['email'] as String?;
-
       print(
         'Fetched - username: $username, email: $email, password: ${password?.replaceAll(RegExp(r'.'), '*')}',
       );
-
-      // If username, email, and password exist, proceed
       if (username != null && password != null && email != null) {
         print('Returning credentials - username: $username, email: $email');
         return {'username': username, 'password': password, 'email': email};
       }
-
       print(
         'Missing required credentials: username=$username, email=$email, password=$password',
       );
@@ -349,7 +428,6 @@ class SellerService {
     }
   }
 
-  // Check if user is authenticated
   Future<bool> isUserAuthenticated() async {
     try {
       await _account.get();
@@ -359,40 +437,49 @@ class SellerService {
     }
   }
 
-  // Convert Appwrite document to SellerModel
   SellerModel _documentToSellerModel(models.Document doc) {
-    // Parse vehicles from compact pipe-separated format
     final vehiclesList =
         (doc.data['vehicles'] as List?)
             ?.map((v) {
               if (v is String) {
                 try {
-                  // Try to parse as JSON string first (for any old JSON format)
                   final jsonData = jsonDecode(v) as Map<String, dynamic>;
                   return VehicleInfo.fromJson(jsonData);
                 } catch (e) {
-                  // Parse pipe-separated format: vehicleNumber|documentId|frontId|rearId|sideId
                   final parts = v.split('|');
                   if (parts.isEmpty) return null;
-
                   return VehicleInfo(
                     vehicleNumber: parts[0],
-                    documentId: parts.length > 1 && parts[1].isNotEmpty
+                    vehicleType: parts.length > 1 && parts[1].isNotEmpty
                         ? parts[1]
-                        : null,
-                    frontImageId: parts.length > 2 && parts[2].isNotEmpty
+                        : '',
+                    type: parts.length > 2 && parts[2].isNotEmpty
                         ? parts[2]
-                        : null,
-                    rearImageId: parts.length > 3 && parts[3].isNotEmpty
+                        : '',
+                    rcBookNo: parts.length > 3 && parts[3].isNotEmpty
                         ? parts[3]
-                        : null,
-                    sideImageId: parts.length > 4 && parts[4].isNotEmpty
+                        : '',
+                    maxPassWeight: parts.length > 4 && parts[4].isNotEmpty
                         ? parts[4]
+                        : '',
+                    documentId: parts.length > 5 && parts[5].isNotEmpty
+                        ? parts[5]
+                        : null,
+                    rcDocumentId: parts.length > 6 && parts[6].isNotEmpty
+                        ? parts[6]
+                        : null,
+                    frontImageId: parts.length > 7 && parts[7].isNotEmpty
+                        ? parts[7]
+                        : null,
+                    rearImageId: parts.length > 8 && parts[8].isNotEmpty
+                        ? parts[8]
+                        : null,
+                    sideImageId: parts.length > 9 && parts[9].isNotEmpty
+                        ? parts[9]
                         : null,
                   );
                 }
               } else if (v is Map<String, dynamic>) {
-                // Direct JSON object (for safety)
                 return VehicleInfo.fromJson(v);
               }
               return null;
@@ -400,7 +487,6 @@ class SellerService {
             .whereType<VehicleInfo>()
             .toList() ??
         [];
-
     return SellerModel(
       id: doc.$id,
       userId: doc.data['user_id'] ?? '',
@@ -408,10 +494,6 @@ class SellerService {
       address: doc.data['address'] ?? '',
       contact: doc.data['contact'] ?? '',
       email: doc.data['email'] ?? '',
-      rcBookNo: doc.data['rc_book_no'] ?? '',
-      rcDocumentId: doc.data['rc_document_id']?.isEmpty ?? true
-          ? null
-          : doc.data['rc_document_id'],
       panCardNo: doc.data['pan_card_no'] ?? '',
       panDocumentId: doc.data['pan_document_id']?.isEmpty ?? true
           ? null
@@ -430,11 +512,11 @@ class SellerService {
       vehicles: vehiclesList,
       createdAt: DateTime.parse(doc.$createdAt),
       status: doc.data['status'] ?? 'pending',
+      availability: doc.data['availability'] ?? 'free',
+      returnLocation: (doc.data['return_location'] as String?) ?? '',
     );
   }
 
-  // Create an Appwrite account for the seller when approved
-  // The username must be a valid email address
   Future<bool> createSellerAccount({
     required String email,
     required String password,
@@ -442,22 +524,36 @@ class SellerService {
   }) async {
     try {
       print('Creating Appwrite account for seller: $email');
-
-      // Create the user account in Appwrite
       await _account.create(
         userId: ID.unique(),
         email: email,
         password: password,
         name: sellerName,
       );
-
       print('✓ Appwrite account created successfully for: $email');
       return true;
     } on AppwriteException catch (e) {
-      // If account already exists (409), it's okay
       if (e.code == 409) {
-        print('Account already exists for $email (no action needed)');
-        return true;
+        // Account already exists. Verify whether provided password is valid.
+        print(
+          'Account already exists for $email. Verifying provided password...',
+        );
+        try {
+          await _account.createEmailPasswordSession(
+            email: email,
+            password: password,
+          );
+          // Password matches existing account; clean up session to avoid side effects.
+          await _account.deleteSession(sessionId: 'current');
+          print('Existing account verified with provided password.');
+          return true;
+        } on AppwriteException catch (loginError) {
+          print(
+            'Password mismatch for existing account $email: ${loginError.message}',
+          );
+          // Signal mismatch to caller (they should prompt user to use existing password/reset).
+          return false;
+        }
       }
       print('Error creating Appwrite account: ${e.message}');
       throw _handleAppwriteException(e);
@@ -467,40 +563,31 @@ class SellerService {
     }
   }
 
-  // Ensure seller account exists before login (create if needed)
   Future<bool> ensureSellerAccountExists({
     required String username,
     required String password,
     required String sellerName,
   }) async {
     try {
-      // The username is used as the email for Appwrite authentication
       print('Ensuring Appwrite account exists for: $username');
-
       await createSellerAccount(
         email: username,
         password: password,
         sellerName: sellerName,
       );
-
       return true;
     } catch (e) {
-      // If account creation fails, log but don't throw
-      // Let the login attempt proceed - it will fail properly if account truly doesn't exist
       print('Note: Could not ensure seller account exists: ${e.toString()}');
       return false;
     }
   }
 
-  // Update seller username in seller_request collection
   Future<bool> updateSellerUsername({
     required String userId,
     required String newUsername,
   }) async {
     try {
       print('Updating username for user: $userId to $newUsername');
-
-      // Find the seller document
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -510,20 +597,26 @@ class SellerService {
           Query.limit(1),
         ],
       );
-
       if (result.documents.isEmpty) {
         throw 'Seller record not found';
       }
-
       final docId = result.documents.first.$id;
-
-      // Update the username field
       await _databases.updateDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
         documentId: docId,
         data: {'username': newUsername},
       );
+
+      // Also update the Appwrite account name
+      try {
+        print('Updating Appwrite account name...');
+        await _account.updateName(name: newUsername);
+        print('✅ Appwrite account name updated successfully');
+      } catch (e) {
+        print('❌ Failed to update Appwrite account name: ${e.toString()}');
+        // Continue anyway as database username is updated
+      }
 
       print('Username updated successfully');
       return true;
@@ -536,15 +629,13 @@ class SellerService {
     }
   }
 
-  // Update seller password in seller_request collection
   Future<bool> updateSellerPassword({
     required String userId,
+    required String oldPassword,
     required String newPassword,
   }) async {
     try {
       print('Updating password for user: $userId');
-
-      // Find the seller document
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -554,14 +645,25 @@ class SellerService {
           Query.limit(1),
         ],
       );
-
       if (result.documents.isEmpty) {
         throw 'Seller record not found';
       }
-
       final docId = result.documents.first.$id;
 
-      // Update the password field
+      // Update the Appwrite account password first (requires old password)
+      try {
+        print('Updating Appwrite account password...');
+        await _account.updatePassword(
+          password: newPassword,
+          oldPassword: oldPassword,
+        );
+        print('✅ Appwrite account password updated successfully');
+      } catch (e) {
+        print('❌ Failed to update Appwrite account password: ${e.toString()}');
+        throw 'Failed to update password. Please check your current password.';
+      }
+
+      // If Appwrite update succeeded, update database
       await _databases.updateDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
@@ -569,24 +671,7 @@ class SellerService {
         data: {'password': newPassword},
       );
 
-      // Also update the Appwrite account password if the account exists
-      try {
-        final email = result.documents.first.data['email'] as String?;
-        if (email != null) {
-          // Note: Updating password for authenticated user requires current session
-          // This is a simplified approach - in production, you might need
-          // to use the account.updatePassword() method with current password
-          print(
-            'Password updated in database. Account password update may require re-authentication.',
-          );
-        }
-      } catch (e) {
-        print(
-          'Note: Could not update Appwrite account password: ${e.toString()}',
-        );
-      }
-
-      print('Password updated successfully');
+      print('Password updated successfully in both Appwrite and database');
       return true;
     } on AppwriteException catch (e) {
       print('Appwrite error updating password: ${e.message}');
@@ -597,23 +682,17 @@ class SellerService {
     }
   }
 
-  // Delete seller account (soft delete - mark as deleted or hard delete the record)
   Future<bool> deleteSellerAccount({required String userId}) async {
     try {
       print('Deleting seller account for user: $userId');
-
-      // Find the seller document
       final result = await _databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.sellerRequestsCollectionId,
         queries: [Query.equal('user_id', userId)],
       );
-
       if (result.documents.isEmpty) {
         throw 'Seller record not found';
       }
-
-      // Delete all seller documents for this user
       for (var doc in result.documents) {
         await _databases.deleteDocument(
           databaseId: AppwriteConfig.databaseId,
@@ -622,15 +701,12 @@ class SellerService {
         );
         print('Deleted seller document: ${doc.$id}');
       }
-
-      // Delete the Appwrite user account session
       try {
         await _account.deleteSession(sessionId: 'current');
         print('Deleted current session');
       } catch (e) {
         print('Note: Could not delete session: ${e.toString()}');
       }
-
       print('Seller account deleted successfully');
       return true;
     } on AppwriteException catch (e) {
@@ -642,7 +718,6 @@ class SellerService {
     }
   }
 
-  // Handle Appwrite exceptions
   String _handleAppwriteException(AppwriteException e) {
     switch (e.code) {
       case 401:
@@ -660,31 +735,23 @@ class SellerService {
     }
   }
 
-  // Generate a unique username from seller name
   String _generateUsername(String name) {
-    // Create a base from the first word of the name
     final nameParts = name.toLowerCase().split(' ');
     final baseUsername = nameParts[0];
-
-    // Add a random suffix to ensure uniqueness
     final randomSuffix = DateTime.now().millisecondsSinceEpoch
         .toString()
         .substring(7);
     return '$baseUsername$randomSuffix';
   }
 
-  // Generate a secure random password
   String _generatePassword() {
-    // Use only alphanumeric characters to avoid Appwrite validation issues
     const characters =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     final random = DateTime.now().microsecondsSinceEpoch;
     final buffer = StringBuffer();
-
     for (int i = 0; i < 12; i++) {
       buffer.write(characters[(random + i) % characters.length]);
     }
-
     return buffer.toString();
   }
 }

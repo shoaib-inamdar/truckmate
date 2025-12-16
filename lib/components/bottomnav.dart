@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
 class Bottomnav extends StatelessWidget {
   const Bottomnav({super.key});
-
   @override
 Widget _buildBottomNav(BuildContext context, int currentIndex) {
   return Container(
@@ -39,7 +37,6 @@ Widget _buildBottomNav(BuildContext context, int currentIndex) {
     ),
   );
 }
-
   @override
   Widget build(BuildContext context) {
     throw UnimplementedError();

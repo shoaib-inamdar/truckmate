@@ -1,28 +1,20 @@
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart' as models;
 import 'package:truckmate/services/appwrite_service.dart';
-import '../config/appwrite_config.dart';
 import '../models/user_model.dart';
-// import '../services/appwrite_service.dart';
 
 class EmailOTPService {
   final _appwriteService = AppwriteService();
   late final Account _account;
-
   EmailOTPService() {
     _account = _appwriteService.account;
   }
-
-  // Send OTP to email
   Future<String> sendEmailOTP({required String email}) async {
     try {
       print('Sending OTP to email: $email');
-
       final token = await _account.createEmailToken(
         userId: ID.unique(),
         email: email,
       );
-
       print('Email token created - UserId: ${token.userId}');
       return token.userId;
     } on AppwriteException catch (e) {
@@ -34,7 +26,6 @@ class EmailOTPService {
     }
   }
 
-  // Verify Email OTP
   Future<UserModel> verifyEmailOTP({
     required String userId,
     required String secret,
@@ -44,8 +35,6 @@ class EmailOTPService {
       print('UserId: $userId');
       print('Secret (OTP): $secret');
       print('Secret length: ${secret.length}');
-
-      // Delete existing session if any
       print('Checking for existing sessions...');
       try {
         await _account.deleteSession(sessionId: 'current');
@@ -53,21 +42,15 @@ class EmailOTPService {
       } catch (e) {
         print('No existing session to delete or error: $e');
       }
-
       print('Calling _account.createSession...');
-
-      // Create session using the OTP (secret)
       final session = await _account.createSession(
         userId: userId,
         secret: secret,
       );
-
       print('Session created successfully!');
       print('Session userId: ${session.userId}');
       print('Session id: ${session.$id}');
       print('Getting current user...');
-
-      // Get user details
       final user = await getCurrentUser();
       print('User retrieved: ${user.email}');
       print('=== END VERIFY EMAIL OTP ===');
@@ -89,7 +72,6 @@ class EmailOTPService {
     }
   }
 
-  // Get current user
   Future<UserModel> getCurrentUser() async {
     try {
       final user = await _account.get();
@@ -109,7 +91,6 @@ class EmailOTPService {
     }
   }
 
-  // Check if logged in
   Future<bool> isLoggedIn() async {
     try {
       await _account.get();
@@ -119,7 +100,6 @@ class EmailOTPService {
     }
   }
 
-  // Logout
   Future<void> logout() async {
     try {
       await _account.deleteSession(sessionId: 'current');

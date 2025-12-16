@@ -1,35 +1,27 @@
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart' as models;
 import '../config/appwrite_config.dart';
 import '../models/user_model.dart';
 
 class GoogleAuthService {
   late final Client _client;
   late final Account _account;
-
   GoogleAuthService() {
     _client = Client()
         .setEndpoint(AppwriteConfig.endpoint)
         .setProject(AppwriteConfig.projectId)
         .setSelfSigned(status: true);
-    
     _account = Account(_client);
   }
-
-  // Sign in with Google
   Future<UserModel> signInWithGoogle() async {
     try {
-      // Create OAuth2 session with Google
       await _account.createOAuth2Session(
-        provider:'',
-        success: '${AppwriteConfig.appUrl}/auth/oauth/success', // Success redirect
-        failure: '${AppwriteConfig.appUrl}/auth/oauth/failure', // Failure redirect
+        provider: OAuthProvider.google,
+        success:
+            '${AppwriteConfig.appUrl}/auth/oauth/success', // Success redirect
+        failure:
+            '${AppwriteConfig.appUrl}/auth/oauth/failure', // Failure redirect
       );
-
-      // Wait for redirect and session creation
       await Future.delayed(const Duration(seconds: 2));
-
-      // Get user details
       final user = await getCurrentUser();
       return user;
     } on AppwriteException catch (e) {
@@ -39,7 +31,6 @@ class GoogleAuthService {
     }
   }
 
-  // Get current user
   Future<UserModel> getCurrentUser() async {
     try {
       final user = await _account.get();
@@ -59,7 +50,6 @@ class GoogleAuthService {
     }
   }
 
-  // Check if logged in
   Future<bool> isLoggedIn() async {
     try {
       await _account.get();
@@ -69,7 +59,6 @@ class GoogleAuthService {
     }
   }
 
-  // Logout
   Future<void> logout() async {
     try {
       await _account.deleteSession(sessionId: 'current');

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/email_otp_service.dart';
-
 enum EmailOTPStatus {
   initial,
   sendingOTP,
@@ -10,16 +9,13 @@ enum EmailOTPStatus {
   verified,
   error,
 }
-
 class EmailOTPProvider with ChangeNotifier {
   final EmailOTPService _emailOTPService = EmailOTPService();
-
   EmailOTPStatus _status = EmailOTPStatus.initial;
   UserModel? _user;
   String? _errorMessage;
   String? _userId;
   String? _email;
-
   EmailOTPStatus get status => _status;
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
@@ -28,17 +24,13 @@ class EmailOTPProvider with ChangeNotifier {
   bool get isLoading =>
       _status == EmailOTPStatus.sendingOTP ||
       _status == EmailOTPStatus.verifyingOTP;
-
-  // Send OTP to email
   Future<bool> sendEmailOTP(String email) async {
     try {
       _status = EmailOTPStatus.sendingOTP;
       _errorMessage = null;
       _email = email;
       notifyListeners();
-
       _userId = await _emailOTPService.sendEmailOTP(email: email);
-
       _status = EmailOTPStatus.otpSent;
       notifyListeners();
       return true;
@@ -49,14 +41,11 @@ class EmailOTPProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Verify Email OTP
   Future<bool> verifyEmailOTP(String otp) async {
     print('=== PROVIDER: Verify Email OTP ===');
     print('OTP received: $otp');
     print('Stored userId: $_userId');
     print('Stored email: $_email');
-
     if (_userId == null) {
       print('ERROR: userId is null!');
       _errorMessage = 'Please send OTP first';
@@ -64,19 +53,16 @@ class EmailOTPProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
-
     try {
       print('Setting status to verifying...');
       _status = EmailOTPStatus.verifyingOTP;
       _errorMessage = null;
       notifyListeners();
-
       print('Calling email OTP service...');
       _user = await _emailOTPService.verifyEmailOTP(
         userId: _userId!,
         secret: otp,
       );
-
       print('Verification successful!');
       print('User: ${_user?.email}');
       _status = EmailOTPStatus.verified;
@@ -92,8 +78,6 @@ class EmailOTPProvider with ChangeNotifier {
       return false;
     }
   }
-
-  // Resend OTP
   Future<bool> resendOTP() async {
     if (_email == null) {
       _errorMessage = 'Email not found';
@@ -101,11 +85,8 @@ class EmailOTPProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
-
     return await sendEmailOTP(_email!);
   }
-
-  // Logout
   Future<void> logout() async {
     try {
       await _emailOTPService.logout();
@@ -120,14 +101,10 @@ class EmailOTPProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // Clear error
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // Reset
   void reset() {
     _status = EmailOTPStatus.initial;
     _userId = null;
@@ -135,8 +112,6 @@ class EmailOTPProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // Check auth status
   Future<bool> checkAuthStatus() async {
     try {
       final isLoggedIn = await _emailOTPService.isLoggedIn();

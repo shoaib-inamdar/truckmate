@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/main.dart' hide AppColors;
 import 'package:truckmate/pages/login.dart';
-// import 'package:truckmate/pages/login_screen.dart';
 import '../../providers/email_otp_provider.dart';
-// import '../../utils/app_colors.dart';
 import '../../utils/validators.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -15,7 +12,6 @@ import 'email_otp_verify_screen.dart';
 
 class EmailOTPLoginScreen extends StatefulWidget {
   const EmailOTPLoginScreen({Key? key}) : super(key: key);
-
   @override
   State<EmailOTPLoginScreen> createState() => _EmailOTPLoginScreenState();
 }
@@ -24,7 +20,6 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _isLoading = false;
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -33,33 +28,23 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
 
   Future<void> _handleSendOTP() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
-
     final emailOTPProvider = Provider.of<EmailOTPProvider>(
       context,
       listen: false,
     );
-    
     final success = await emailOTPProvider.sendEmailOTP(
       _emailController.text.trim(),
     );
-
     setState(() => _isLoading = false);
-
     if (!mounted) return;
-
     if (success) {
-      SnackBarHelper.showSuccess(
-        context,
-        'OTP sent to your email!',
-      );
+      SnackBarHelper.showSuccess(context, 'OTP sent to your email!');
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => EmailOTPVerifyScreen(
-            email: _emailController.text.trim(),
-          ),
+          builder: (_) =>
+              EmailOTPVerifyScreen(email: _emailController.text.trim()),
         ),
       );
     } else {
@@ -73,7 +58,6 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
       backgroundColor: AppColors.white,
       body: LoadingOverlay(
@@ -89,19 +73,18 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 40),
-                    
                     IconButton(
-                      onPressed: () =>Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ChooseLoginScreen ()),
-        ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChooseLoginScreen(),
+                        ),
+                      ),
                       icon: const Icon(Icons.arrow_back),
                       color: AppColors.dark,
                       iconSize: 28,
                     ),
-
                     SizedBox(height: size.height * 0.04),
-
                     Center(
                       child: Column(
                         children: [
@@ -148,9 +131,7 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                         ],
                       ),
                     ),
-
                     SizedBox(height: size.height * 0.06),
-
                     CustomTextField(
                       label: 'Email Address',
                       hint: 'Enter your email',
@@ -162,9 +143,7 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                         color: AppColors.secondary,
                       ),
                     ),
-
                     const SizedBox(height: 40),
-
                     CustomButton(
                       text: 'Send Verification Code',
                       onPressed: _handleSendOTP,
@@ -175,9 +154,7 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                         size: 20,
                       ),
                     ),
-
                     const SizedBox(height: 32),
-
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -222,7 +199,6 @@ class _EmailOTPLoginScreenState extends State<EmailOTPLoginScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 40),
                   ],
                 ),

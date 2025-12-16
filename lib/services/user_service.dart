@@ -6,16 +6,12 @@ import '../services/appwrite_service.dart';
 
 class UserService {
   final _appwriteService = AppwriteService();
-
   late final Databases _databases;
   late final Account _account;
-
   UserService() {
     _databases = _appwriteService.databases;
     _account = _appwriteService.account;
   }
-
-  // Create or update user profile in database
   Future<UserModel> createOrUpdateUserProfile({
     required String userId,
     required String email,
@@ -27,14 +23,11 @@ class UserService {
     try {
       print('Creating/Updating profile for user: $userId');
       print('Email received: $email');
-
-      // Validate email format
       final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
       if (!emailRegex.hasMatch(email)) {
         print('Invalid email format detected: $email');
         throw 'Invalid email format. Please provide a valid email address.';
       }
-
       final data = {
         'email': email,
         'name': name,
@@ -42,35 +35,25 @@ class UserService {
         'phone': phone ?? '',
         'address': address ?? '',
       };
-
       print('Profile data: $data');
-
-      // Try to get existing document first
       try {
         await _databases.getDocument(
           databaseId: AppwriteConfig.databaseId,
           collectionId: AppwriteConfig.usersCollectionId,
           documentId: userId,
         );
-
         print('Document exists, updating...');
-
-        // Document exists, update it
         final doc = await _databases.updateDocument(
           databaseId: AppwriteConfig.databaseId,
           collectionId: AppwriteConfig.usersCollectionId,
           documentId: userId,
           data: data,
         );
-
         print('Document updated successfully');
         return _documentToUserModel(doc);
       } catch (e) {
         print('Document does not exist, creating new one...');
         print('Creating document with permissions for user: $userId');
-
-        // Document doesn't exist, create it with proper permissions
-        // This allows the user to read, update, and delete their own document
         final doc = await _databases.createDocument(
           databaseId: AppwriteConfig.databaseId,
           collectionId: AppwriteConfig.usersCollectionId,
@@ -82,7 +65,6 @@ class UserService {
             Permission.delete(Role.user(userId)),
           ],
         );
-
         print('Document created successfully');
         return _documentToUserModel(doc);
       }
@@ -97,17 +79,14 @@ class UserService {
     }
   }
 
-  // Get user profile from database
   Future<UserModel?> getUserProfile(String userId) async {
     try {
       print('Getting profile for user: $userId');
-
       final doc = await _databases.getDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.usersCollectionId,
         documentId: userId,
       );
-
       print('Profile retrieved successfully');
       return _documentToUserModel(doc);
     } on AppwriteException catch (e) {
@@ -125,24 +104,17 @@ class UserService {
     }
   }
 
-  // Get current user with profile data
   Future<UserModel> getCurrentUserWithProfile() async {
     try {
       print('Getting current user with profile...');
-
       final user = await _account.get();
       print('Got user from account: ${user.$id}');
-
-      // Try to get profile data from database
       final profile = await getUserProfile(user.$id);
-
       if (profile != null) {
         print('Profile found in database');
         return profile;
       }
-
       print('No profile in database, returning basic user data');
-      // If no profile in database, return basic user data
       return UserModel(
         id: user.$id,
         email: user.email,
@@ -151,7 +123,6 @@ class UserService {
         phone: user.phone,
         emailVerification: user.emailVerification,
         phoneVerification: user.phoneVerification,
-        // isProfileComplete: false,
       );
     } on AppwriteException catch (e) {
       print(
@@ -164,7 +135,6 @@ class UserService {
     }
   }
 
-  // Update only specific fields
   Future<UserModel> updateUserFields({
     required String userId,
     String? name,
@@ -174,20 +144,17 @@ class UserService {
   }) async {
     try {
       final Map<String, dynamic> data = {};
-
       if (name != null) data['name'] = name;
       if (role != null) data['role'] = role;
       if (phone != null) data['phone'] = phone;
       if (address != null) data['address'] = address;
       data['updatedAt'] = DateTime.now().toIso8601String();
-
       final doc = await _databases.updateDocument(
         databaseId: AppwriteConfig.databaseId,
         collectionId: AppwriteConfig.usersCollectionId,
         documentId: userId,
         data: data,
       );
-
       return _documentToUserModel(doc);
     } on AppwriteException catch (e) {
       throw _handleAppwriteException(e);
@@ -196,7 +163,6 @@ class UserService {
     }
   }
 
-  // Delete user profile document
   Future<void> deleteUserProfile(String userId) async {
     try {
       await _databases.deleteDocument(
@@ -211,7 +177,6 @@ class UserService {
     }
   }
 
-  // Convert Appwrite document to UserModel
   UserModel _documentToUserModel(models.Document doc) {
     final name = doc.data['name'] ?? '';
     final phone = doc.data['phone'];
@@ -222,7 +187,6 @@ class UserService {
         phone.isNotEmpty &&
         address != null &&
         address.isNotEmpty;
-
     return UserModel(
       id: doc.$id,
       email: doc.data['email'] ?? '',
@@ -237,7 +201,6 @@ class UserService {
     );
   }
 
-  // Handle Appwrite exceptions
   String _handleAppwriteException(AppwriteException e) {
     switch (e.code) {
       case 401:
