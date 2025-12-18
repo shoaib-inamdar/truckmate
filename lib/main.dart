@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:truckmate/pages/homepage.dart';
 import 'package:truckmate/pages/email_otp_login_screen.dart';
 import 'package:truckmate/pages/login.dart';
+import 'package:truckmate/pages/password_reset_screen.dart';
 import 'package:truckmate/pages/seller_choice_screen.dart';
 import 'package:truckmate/pages/seller_dashboard.dart';
-import 'package:truckmate/pages/seller_registration_screen.dart';
+import 'package:truckmate/pages/transporter_registration_tabs.dart';
 import 'package:truckmate/pages/seller_waiting_confirmation.dart';
 import 'package:truckmate/pages/profile_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
@@ -15,6 +16,8 @@ import 'package:truckmate/providers/email_otp_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/providers/seller_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
+import 'dart:async';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,12 +57,16 @@ class AppColors {
   static const Color lightgreen = Color(0xFF7ECF9A);
 }
 
+// Global navigator key for deep link navigation
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CargoBalancer',
+      title: 'Cargo Balancer',
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         primaryColor: const Color(0xFFC6FF00),
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
@@ -99,10 +106,65 @@ class StartupRouter extends StatefulWidget {
 class _StartupRouterState extends State<StartupRouter> {
   String? _startupChoice; // 'customer' | 'seller' | null
   bool _loaded = false;
+  StreamSubscription? _linkSubscription;
+  final _appLinks = AppLinks();
+
   @override
   void initState() {
     super.initState();
     _loadStartupChoice();
+    _initDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initDeepLinks() async {
+    // Handle initial deep link when app is opened from a link
+    try {
+      final initialLink = await _appLinks.getInitialLink();
+      if (initialLink != null) {
+        _handleDeepLink(initialLink.toString());
+      }
+    } catch (e) {
+      print('Error getting initial link: $e');
+    }
+
+    // Handle deep links while app is running
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      (Uri uri) {
+        _handleDeepLink(uri.toString());
+      },
+      onError: (err) {
+        print('Error listening to link stream: $err');
+      },
+    );
+  }
+
+  void _handleDeepLink(String link) {
+    print('Received deep link: $link');
+    final uri = Uri.parse(link);
+
+    // Handle password reset: truckmate://reset-password?userId=xxx&secret=xxx
+    if (uri.host == 'reset-password') {
+      final userId = uri.queryParameters['userId'];
+      final secret = uri.queryParameters['secret'];
+
+      if (userId != null && secret != null) {
+        print('Navigating to password reset with userId: $userId');
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => PasswordResetScreen(userId: userId, secret: secret),
+          ),
+          (route) => false,
+        );
+      } else {
+        print('Missing userId or secret in deep link');
+      }
+    }
   }
 
   Future<void> _loadStartupChoice() async {
@@ -297,7 +359,7 @@ class _SellerAuthWrapperState extends State<SellerAuthWrapper> {
           );
         }
         if (authProvider.status == AuthStatus.authenticated) {
-          return const SellerRegistrationScreen();
+          return const TransporterRegistrationTabs();
         }
         return Scaffold(
           backgroundColor: AppColors.white,

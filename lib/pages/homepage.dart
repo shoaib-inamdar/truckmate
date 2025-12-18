@@ -34,7 +34,28 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Image.asset('assets/images/logo.png', height: 40, width: 40),
             const SizedBox(width: 10),
-            const Text('CargoBalancer'),
+            RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Cargo',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' Balancer',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         backgroundColor: AppColors.dark,

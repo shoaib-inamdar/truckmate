@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/colors.dart';
 import '../models/booking_model.dart';
 import '../utils/maps_url_builder.dart';
@@ -130,6 +131,9 @@ class _ShippingMapScreenState extends State<ShippingMapScreen> {
           // Route info banner
           _buildRouteInfoBanner(),
 
+          // Open in Google Maps button
+          _buildOpenInMapsButton(),
+
           // Map WebView
           Expanded(child: _buildMapContent()),
 
@@ -212,6 +216,78 @@ class _ShippingMapScreenState extends State<ShippingMapScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildOpenInMapsButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.secondary.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _openInGoogleMaps,
+        icon: const Icon(Icons.map, size: 20),
+        label: const Text(
+          'Open in Google Maps App',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.dark,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          elevation: 2,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openInGoogleMaps() async {
+    try {
+      final startLoc = Uri.encodeComponent(widget.booking.startLocation.trim());
+      final destLoc = Uri.encodeComponent(widget.booking.destination.trim());
+
+      // Build Google Maps app URL for directions
+      final googleMapsUrl =
+          'google.navigation:q=$destLoc&origin=$startLoc&mode=d';
+      final fallbackUrl =
+          'https://www.google.com/maps/dir/?api=1&origin=$startLoc&destination=$destLoc&travelmode=driving';
+
+      // Try to launch Google Maps app first
+      if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
+        await launchUrl(
+          Uri.parse(googleMapsUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } else if (await canLaunchUrl(Uri.parse(fallbackUrl))) {
+        // Fallback to web version
+        await launchUrl(
+          Uri.parse(fallbackUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        throw 'Could not open Google Maps';
+      }
+    } catch (e) {
+      print('Error opening Google Maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open Google Maps: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMapContent() {

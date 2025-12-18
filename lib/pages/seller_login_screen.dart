@@ -1,11 +1,15 @@
+import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:truckmate/config/appwrite_config.dart';
 import 'package:truckmate/constants/colors.dart';
+import 'package:truckmate/pages/password_reset_screen.dart';
 import 'package:truckmate/pages/seller_dashboard.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
+
 class SellerLoginScreen extends StatefulWidget {
   final String? approvedUsername;
   final String? approvedPassword;
@@ -19,6 +23,7 @@ class SellerLoginScreen extends StatefulWidget {
   @override
   State<SellerLoginScreen> createState() => _SellerLoginScreenState();
 }
+
 class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _userIdController = TextEditingController();
@@ -37,6 +42,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       }
     }
   }
+
   @override
   void dispose() {
     _userIdController.dispose();
@@ -44,6 +50,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     _emailController.dispose();
     super.dispose();
   }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -58,8 +65,15 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     print('Username: $username');
     print('Email: $email');
     print('Password: ${password.replaceAll(RegExp(r'.'), '*')}');
+
     bool success = false;
     try {
+      // Delete any existing sessions first
+      print('Checking for existing sessions...');
+      await authProvider.deleteAllExistingSessions();
+      print('Existing sessions cleared');
+
+      // Now attempt new login
       success = await authProvider.login(email: email, password: password);
       print('Login result: $success');
       if (!success) {
@@ -88,6 +102,102 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       );
     }
   }
+
+  Future<void> _handleForgotPassword() async {
+    // Show dialog to get email
+    final emailController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_reset, color: AppColors.primary),
+            SizedBox(width: 12),
+            Text('Reset Password'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your registered email address. We will send you a password reset link.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: 'Email address',
+                filled: true,
+                fillColor: AppColors.light,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.email_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textDark),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.dark,
+            ),
+            child: const Text('Send Reset Link'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || emailController.text.trim().isEmpty) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    try {
+      // Using custom URL scheme for app deep linking
+      // The URL must match the intent-filter in AndroidManifest.xml
+      final success = await authProvider.sendPasswordRecovery(
+        emailController.text.trim(),
+        'truckmate://reset-password',
+      );
+
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      if (success) {
+        SnackBarHelper.showSuccess(
+          context,
+          'Password reset instructions sent to your email',
+        );
+      } else {
+        SnackBarHelper.showError(
+          context,
+          authProvider.errorMessage ?? 'Failed to send reset email',
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      SnackBarHelper.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -332,12 +442,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     TextButton(
-                      onPressed: () {
-                        SnackBarHelper.showInfo(
-                          context,
-                          'Please contact admin to reset password',
-                        );
-                      },
+                      onPressed: _handleForgotPassword,
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
@@ -355,6 +460,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       ),
     );
   }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truckmate/constants/colors.dart';
+import 'package:truckmate/pages/add_vehicle_request_screen.dart';
 import 'package:truckmate/pages/login.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/services/seller_service.dart';
@@ -29,6 +30,9 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
   bool _isEditingPassword = false;
   String? _currentUsername;
   String? _userId;
+  String? _transporterType;
+  List<Map<String, dynamic>>? _vehicles;
+  int _vehicleCount = 0;
   @override
   void initState() {
     super.initState();
@@ -83,6 +87,14 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
           _usernameController.text = _currentUsername ?? '';
           // Auto-fill current password from seller_request table
           _currentPasswordController.text = credentials['password'] ?? '';
+          _transporterType = credentials['transporter_type'];
+          print('🔵 SellerProfile: Set transporter_type to: $_transporterType');
+          // Parse vehicles from pipe-separated strings
+          _vehicles = _parseVehicles(credentials['vehicles'] ?? []);
+          print('🔵 SellerProfile: After parsing, _vehicles.length = ${_vehicles?.length ?? 0}');
+          _vehicleCount =
+              int.tryParse(credentials['vehicle_count']?.toString() ?? '0') ??
+              0;
         });
       } else {
         print('❌ SellerProfile: No credentials found');
@@ -90,6 +102,45 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     } catch (e) {
       print('❌ SellerProfile: Error loading credentials: $e');
     }
+  }
+
+  List<Map<String, dynamic>> _parseVehicles(dynamic vehiclesData) {
+    List<Map<String, dynamic>> parsedVehicles = [];
+
+    if (vehiclesData == null) {
+      print('🔵 SellerProfile: vehiclesData is null');
+      return parsedVehicles;
+    }
+
+    print('🔵 SellerProfile: vehiclesData type: ${vehiclesData.runtimeType}, value: $vehiclesData');
+
+    // vehiclesData can be a List of strings (pipe-separated format)
+    if (vehiclesData is List) {
+      print('🔵 SellerProfile: vehiclesData is a List with ${vehiclesData.length} items');
+      for (var vehicle in vehiclesData) {
+        if (vehicle is String && vehicle.isNotEmpty) {
+          print('🔵 SellerProfile: Parsing vehicle string: $vehicle');
+          final parts = vehicle.split('|');
+          if (parts.isNotEmpty) {
+            parsedVehicles.add({
+              'vehicle_number': parts.length > 0 ? parts[0] : '',
+              'type_name': parts.length > 1 ? parts[1] : '',
+              'vehicle_type': parts.length > 2 ? parts[2] : 'closed',
+              'rc_book_no': parts.length > 3 ? parts[3] : '',
+              'max_weight': parts.length > 4 ? parts[4] : '',
+              'rc_book_id': parts.length > 5 ? parts[5] : '',
+              'front_image_id': parts.length > 6 ? parts[6] : '',
+              'rear_image_id': parts.length > 7 ? parts[7] : '',
+            });
+          }
+        }
+      }
+      print('🟢 SellerProfile: Parsed ${parsedVehicles.length} vehicles');
+    } else {
+      print('❌ SellerProfile: vehiclesData is not a List, it is ${vehiclesData.runtimeType}');
+    }
+
+    return parsedVehicles;
   }
 
   Future<void> _handleUpdateUsername() async {
@@ -264,10 +315,13 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final pageTitle = _transporterType == 'business_company'
+        ? 'Business Profile'
+        : 'Transporter Profile';
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: const Text('Transporter Profile'),
+        title: Text(pageTitle),
         backgroundColor: AppColors.dark,
         foregroundColor: AppColors.primary,
         elevation: 0,
@@ -290,6 +344,18 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                   const SizedBox(height: 24),
                   _buildPasswordSection(),
                   const SizedBox(height: 24),
+                  if (_transporterType != 'business_company') ...[
+                    _buildAddVehicleButton(),
+                    const SizedBox(height: 24),
+                  ],
+                  if (_transporterType != 'business_company' &&
+                      _vehicles != null &&
+                      _vehicles!.isNotEmpty)
+                    _buildVehiclesSection(),
+                  if (_transporterType != 'business_company' &&
+                      _vehicles != null &&
+                      _vehicles!.isNotEmpty)
+                    const SizedBox(height: 24),
                   _buildDangerZone(),
                 ],
               ),
@@ -322,8 +388,8 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withOpacity(0.2),
-              border: Border.all(color: AppColors.primary, width: 3),
+              color: AppColors.success.withOpacity(0.2),
+              border: Border.all(color: AppColors.success, width: 3),
             ),
             child: const Icon(Icons.person, size: 40, color: AppColors.dark),
           ),
@@ -381,7 +447,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.person_outline, color: AppColors.primary),
+              const Icon(Icons.person_outline, color: AppColors.success),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
@@ -401,7 +467,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                   icon: const Icon(Icons.edit, size: 18),
                   label: const Text('Edit'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor: AppColors.success,
                   ),
                 ),
             ],
@@ -507,7 +573,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.lock_outline, color: AppColors.primary),
+              const Icon(Icons.lock_outline, color: AppColors.success),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
@@ -527,7 +593,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                   icon: const Icon(Icons.edit, size: 18),
                   label: const Text('Change'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor: AppColors.success,
                   ),
                 ),
             ],
@@ -708,6 +774,326 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAddVehicleButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.add_circle, color: AppColors.primary),
+              SizedBox(width: 12),
+              Text(
+                'Add More Vehicles',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.dark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You can add up to 10 vehicles. Currently you have $_vehicleCount vehicle(s).',
+            style: const TextStyle(fontSize: 14, color: AppColors.textLight),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddVehicleRequestScreen(
+                      currentVehicleCount: _vehicleCount,
+                    ),
+                  ),
+                );
+                if (result == true && mounted) {
+                  // Reload profile data after successful submission
+                  await _loadCurrentUsername();
+                  if (!mounted) return;
+                  SnackBarHelper.showSuccess(
+                    context,
+                    'Vehicle request submitted successfully',
+                  );
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Vehicle Request'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.dark,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehiclesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.local_shipping, color: AppColors.success),
+            SizedBox(width: 12),
+            Text(
+              'My Vehicles',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.dark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ...(_vehicles ?? []).asMap().entries.map((entry) {
+          int index = entry.key;
+          Map<String, dynamic> vehicle = entry.value;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.dark.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with vehicle type and number
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkLight.withOpacity(0.1),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.directions_car,
+                        color: AppColors.success,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              vehicle['type_name'] ?? 'Unknown',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.dark,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Vehicle #${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (vehicle['vehicle_type'] == 'open'
+                                      ? AppColors.darkLight
+                                      : AppColors.success)
+                                  .withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          vehicle['vehicle_type']?.toString().toUpperCase() ??
+                              'CLOSED',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: vehicle['vehicle_type'] == 'open'
+                                ? AppColors.light
+                                : AppColors.success,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Details
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow(
+                        'Vehicle Number',
+                        vehicle['vehicle_number'] ?? '-',
+                        Icons.directions_car,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        'RC Book Number',
+                        vehicle['rc_book_no'] ?? '-',
+                        Icons.description,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        'Max Weight',
+                        vehicle['max_weight'] ?? '-',
+                        Icons.speed,
+                      ),
+                      if (vehicle['rc_book_id']?.isNotEmpty ?? false) ...[
+                        const SizedBox(height: 12),
+                        _buildDocumentButton(
+                          'RC Book Document',
+                          vehicle['rc_book_id'],
+                        ),
+                      ],
+                      if ((vehicle['front_image_id']?.isNotEmpty ?? false) ||
+                          (vehicle['rear_image_id']?.isNotEmpty ?? false)) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            if (vehicle['front_image_id']?.isNotEmpty ?? false)
+                              Expanded(
+                                child: _buildDocumentButton(
+                                  'Front Image',
+                                  vehicle['front_image_id'],
+                                ),
+                              ),
+                            if ((vehicle['front_image_id']?.isNotEmpty ??
+                                    false) &&
+                                (vehicle['rear_image_id']?.isNotEmpty ?? false))
+                              const SizedBox(width: 8),
+                            if (vehicle['rear_image_id']?.isNotEmpty ?? false)
+                              Expanded(
+                                child: _buildDocumentButton(
+                                  'Rear Image',
+                                  vehicle['rear_image_id'],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.primary, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.dark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDocumentButton(String label, String documentId) {
+    return InkWell(
+      onTap: () {
+        SnackBarHelper.showInfo(context, 'Document viewing coming soon');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.description, color: AppColors.success, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

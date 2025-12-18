@@ -85,10 +85,6 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         foregroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: LoadingOverlay(
         isLoading: _isProcessing,

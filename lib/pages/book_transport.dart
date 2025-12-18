@@ -28,7 +28,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
   final _loadDescriptionController = TextEditingController();
   final _startLocationController = TextEditingController();
   final _destinationController = TextEditingController();
-  final _fixedLocationController = TextEditingController();
   final _bidAmountController = TextEditingController();
   final List<String> vehicleTypesList = [
     'Truck',
@@ -38,44 +37,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     'Trailer',
     'Mini Pickup',
   ];
-  final widgets = [
-    Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/images/Cargo1.png"),
-          fit: BoxFit.contain,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ),
-    Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/images/Cargo2.png"),
-          fit: BoxFit.contain,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ),
-    Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/images/Cargo3.png"),
-          fit: BoxFit.contain,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ),
-    Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/images/Cargo4.png"),
-          fit: BoxFit.contain,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ),
-  ];
+ 
   @override
   void initState() {
     super.initState();
@@ -101,7 +63,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     _loadDescriptionController.dispose();
     _startLocationController.dispose();
     _destinationController.dispose();
-    _fixedLocationController.dispose();
     _bidAmountController.dispose();
     super.dispose();
   }
@@ -167,9 +128,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
       loadDescription: _loadDescriptionController.text.trim(),
       startLocation: _startLocationController.text.trim(),
       destination: _destinationController.text.trim(),
-      fixedLocation: _fixedLocationController.text.trim().isNotEmpty
-          ? _fixedLocationController.text.trim()
-          : null,
       bidAmount: '₹${_bidAmountController.text.trim()}',
       vehicleType: selectedVehicleType,
     );
@@ -201,7 +159,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
           children: const [
             Icon(Icons.check_circle, color: AppColors.success, size: 32),
             SizedBox(width: 12),
-            Text('Booking Confirmed!'),
+            Expanded(child: Text('Booking Confirmed!'),),
           ],
         ),
         content: Column(
@@ -266,7 +224,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     _loadDescriptionController.clear();
     _startLocationController.clear();
     _destinationController.clear();
-    _fixedLocationController.clear();
     _bidAmountController.clear();
     setState(() {
       _selectedVehicle = null;
@@ -298,28 +255,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              children: [
-                                CarouselSlider.builder(
-                                  itemCount: widgets.length,
-                                  itemBuilder: (context, index, realIndex) {
-                                    var assetImage = widgets[index];
-                                    return buildImage(assetImage, index);
-                                  },
-                                  options: CarouselOptions(
-                                    onPageChanged: (index, reason) =>
-                                        setState(() => activeIndex = index),
-                                    enlargeStrategy:
-                                        CenterPageEnlargeStrategy.scale,
-                                    enlargeCenterPage: true,
-                                    height: 180,
-                                    autoPlay: true,
-                                    autoPlayInterval: Duration(seconds: 2),
-                                  ),
-                                ),
-                                buildIndicator(),
-                              ],
-                            ),
+                            
                             const SizedBox(height: 32),
                             Container(
                               decoration: BoxDecoration(
@@ -330,7 +266,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryDark,
+                                  color: AppColors.success,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -390,14 +326,6 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
                               'Enter destination',
                               Icons.location_city_outlined,
                               _destinationController,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              'Preferred traveling route',
-                              'Enter Preferred traveling route',
-                              Icons.place_outlined,
-                              _fixedLocationController,
-                              isRequired: false,
                             ),
                             const SizedBox(height: 16),
                             _buildTextField(
@@ -652,18 +580,7 @@ class _BookTransportScreenState extends State<BookTransportScreen> {
     );
   }
 
-  buildIndicator() => AnimatedSmoothIndicator(
-    activeIndex: activeIndex,
-    count: widgets.length,
-    effect: JumpingDotEffect(
-      spacing: 12,
-      verticalOffset: 10.0,
-      dotHeight: 10,
-      dotWidth: 10,
-      activeDotColor: AppColors.primary,
-      dotColor: Color(0xffdadada),
-    ),
-  );
+
   Widget _buildVehicleSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

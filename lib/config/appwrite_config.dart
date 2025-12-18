@@ -10,9 +10,11 @@ class AppwriteConfig {
   static const String bookingsCollectionId = 'user_data_collection';
   static const String sellerRequestsCollectionId = 'seller_request';
   static const String userDataCollectionId = 'user_data_collection';
+  static const String businessTransporterCollectionId = 'business_transporter';
   static const String sellerDocumentsBucketId = '692bccf7001b0bafdecd';
   static const String paymentScreenshotsBucketId = '692bccf7001b0bafdecd';
   static const String chatMessagesCollectionId = 'chat_messages';
 
   static const Duration timeout = Duration(seconds: 30);
 }
+ 

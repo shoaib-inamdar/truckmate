@@ -29,8 +29,8 @@ class SellerService {
     try {
       print('Uploading file: $fileName');
       final fileSize = await file.length();
-      if (fileSize > 5 * 1024 * 1024) {
-        throw 'File size exceeds 5MB limit';
+      if (fileSize > 1 * 1024 * 1024) {
+        throw 'File size exceeds 1MB limit';
       }
       final userId = await _getCurrentUserId();
       if (userId == null) {
@@ -117,6 +117,7 @@ class SellerService {
     String? gstDocumentId,
     required List<String> selectedVehicleTypes,
     required List<VehicleInfo> vehicles,
+    required int vehicleCount,
   }) async {
     try {
       print('Creating seller registration for user: $userId');
@@ -157,6 +158,8 @@ class SellerService {
         'gst_document_id': gstDocumentId ?? '',
         'selected_vehicle_types': selectedVehicleTypes,
         'vehicles': vehiclesStrings,
+        'vehicle_count': vehicleCount.toString(),
+        'transporter_type': 'individual',
         'status': 'pending',
       };
 
@@ -213,6 +216,83 @@ class SellerService {
     }
   }
 
+  Future<SellerModel> createBusinessRegistration({
+    required String userId,
+    required String companyName,
+    required String contact,
+    required String address,
+    required String email,
+    required String gstNo,
+    String? gstDocumentId,
+    required String panCardNo,
+    String? panDocumentId,
+    required String transportLicenseNo,
+    String? transportLicenseDocumentId,
+  }) async {
+    try {
+      print('Creating business registration for user: $userId');
+      final username = _generateUsername(companyName);
+      final password = _generatePassword();
+      print(
+        'Generated credentials - username: $username, password: ${password.replaceAll(RegExp(r'.'), '*')}',
+      );
+
+      final data = {
+        'user_id': userId,
+        'name': companyName,
+        'address': address,
+        'contact': contact,
+        'email': email,
+        'username': username,
+        'password': password,
+        'pan_card_no': panCardNo,
+        'pan_document_id': panDocumentId ?? '',
+        'driving_license_no': transportLicenseNo,
+        'license_document_id': transportLicenseDocumentId ?? '',
+        'gst_no': gstNo,
+        'gst_document_id': gstDocumentId ?? '',
+        'selected_vehicle_types': [],
+        'vehicles': [],
+        'vehicle_count': '0',
+        'transporter_type': 'business_company',
+        'status': 'pending',
+      };
+
+      print('Business data: $data');
+      final doc = await _databases.createDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        documentId: ID.unique(),
+        data: data,
+        permissions: [
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(userId)),
+        ],
+      );
+      print('Business registration created successfully: ${doc.$id}');
+      return _documentToSellerModel(doc);
+    } on AppwriteException catch (e) {
+      print(
+        'Appwrite error in createBusinessRegistration: Code ${e.code}, Message: ${e.message}, Response: ${e.response}',
+      );
+      if (panDocumentId != null && panDocumentId.isNotEmpty) {
+        await deleteDocument(panDocumentId);
+      }
+      if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
+        await deleteDocument(gstDocumentId);
+      }
+      if (transportLicenseDocumentId != null &&
+          transportLicenseDocumentId.isNotEmpty) {
+        await deleteDocument(transportLicenseDocumentId);
+      }
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('General error in createBusinessRegistration: ${e.toString()}');
+      throw 'Failed to create business registration: ${e.toString()}';
+    }
+  }
+
   Future<SellerModel?> getSellerRegistration(String userId) async {
     try {
       final result = await _databases.listDocuments(
@@ -228,6 +308,23 @@ class SellerService {
       throw _handleAppwriteException(e);
     } catch (e) {
       throw 'Failed to get seller registration: ${e.toString()}';
+    }
+  }
+
+  Future<Map<String, dynamic>?> getSellerByUserId(String userId) async {
+    try {
+      final result = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [Query.equal('user_id', userId)],
+      );
+      if (result.documents.isEmpty) {
+        return null;
+      }
+      return result.documents.first.data;
+    } catch (e) {
+      print('Error getting seller by userId: $e');
+      return null;
     }
   }
 
@@ -388,7 +485,7 @@ class SellerService {
     }
   }
 
-  Future<Map<String, String>?> getSellerCredentials(String userId) async {
+  Future<Map<String, dynamic>?> getSellerCredentials(String userId) async {
     try {
       print('Fetching seller credentials for user: $userId');
       final result = await _databases.listDocuments(
@@ -408,12 +505,24 @@ class SellerService {
       final username = doc.data['username'] as String?;
       final password = doc.data['password'] as String?;
       final email = doc.data['email'] as String?;
+      final transporterType = doc.data['transporter_type'] as String?;
+      final vehicles = doc.data['vehicles'];
+      final vehicleCount = doc.data['vehicle_count'];
       print(
-        'Fetched - username: $username, email: $email, password: ${password?.replaceAll(RegExp(r'.'), '*')}',
+        'Fetched - username: $username, email: $email, transporter_type: $transporterType, password: ${password?.replaceAll(RegExp(r'.'), '*')}',
       );
       if (username != null && password != null && email != null) {
-        print('Returning credentials - username: $username, email: $email');
-        return {'username': username, 'password': password, 'email': email};
+        print(
+          'Returning credentials - username: $username, email: $email, transporter_type: $transporterType, vehicles: $vehicles',
+        );
+        return {
+          'username': username,
+          'password': password,
+          'email': email,
+          'transporter_type': transporterType ?? 'individual',
+          'vehicles': vehicles ?? [],
+          'vehicle_count': vehicleCount?.toString() ?? '0',
+        };
       }
       print(
         'Missing required credentials: username=$username, email=$email, password=$password',
@@ -510,6 +619,7 @@ class SellerService {
         doc.data['selected_vehicle_types'] ?? [],
       ),
       vehicles: vehiclesList,
+      vehicleCount: doc.data['vehicle_count'] ?? 0,
       createdAt: DateTime.parse(doc.$createdAt),
       status: doc.data['status'] ?? 'pending',
       availability: doc.data['availability'] ?? 'free',
@@ -679,6 +789,47 @@ class SellerService {
     } catch (e) {
       print('Error updating password: ${e.toString()}');
       throw 'Failed to update password: ${e.toString()}';
+    }
+  }
+
+  /// Updates the seller password in the seller_request table by user_id
+  /// This should be called AFTER the Appwrite account password has been updated via recovery
+  Future<bool> updateSellerPasswordByUserId({
+    required String userId,
+    required String newPassword,
+  }) async {
+    try {
+      print('Updating seller password for user_id: $userId');
+
+      // Find seller document by user_id
+      final result = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [Query.equal('user_id', userId)],
+      );
+
+      if (result.documents.isEmpty) {
+        throw 'Seller record not found for user_id: $userId';
+      }
+
+      final docId = result.documents.first.$id;
+
+      // Update the password in seller_request table
+      await _databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        documentId: docId,
+        data: {'password': newPassword},
+      );
+
+      print('✅ Seller password updated successfully in database');
+      return true;
+    } on AppwriteException catch (e) {
+      print('❌ Appwrite error updating seller password: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('❌ Error updating seller password: ${e.toString()}');
+      throw 'Failed to update seller password: ${e.toString()}';
     }
   }
 

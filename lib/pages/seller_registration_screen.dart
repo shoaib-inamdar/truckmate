@@ -25,7 +25,6 @@ class SellerRegistrationScreen extends StatefulWidget {
 
 class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final Set<int> _selectedVehicles = {};
   bool _isLoading = false;
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -46,10 +45,82 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     'Trailer',
     'Mini Pickup',
   ];
+  // New vehicle selection system with spinners
+  final Map<String, int> _vehicleQuantities = {
+    'Truck': 0,
+    'Tempo': 0,
+    'Mini Truck': 0,
+    'Container': 0,
+    'Trailer': 0,
+    'Mini Pickup': 0,
+  };
+  static const int _maxTotalVehicles = 10;
   @override
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  int get _totalVehicles {
+    return _vehicleQuantities.values.fold(0, (sum, count) => sum + count);
+  }
+
+  int get _remainingSlots {
+    return _maxTotalVehicles - _totalVehicles;
+  }
+
+  void _updateVehicleQuantity(String type, int newCount) {
+    final currentTotal = _totalVehicles;
+    final currentCount = _vehicleQuantities[type] ?? 0;
+    final difference = newCount - currentCount;
+
+    if (currentTotal + difference > _maxTotalVehicles) {
+      SnackBarHelper.showError(
+        context,
+        'Maximum $_maxTotalVehicles vehicles allowed',
+      );
+      return;
+    }
+
+    setState(() {
+      _vehicleQuantities[type] = newCount;
+      _syncVehicleEntries();
+    });
+  }
+
+  void _syncVehicleEntries() {
+    // Remove excess vehicles or add new ones based on quantities
+    final List<VehicleEntry> newVehicles = [];
+
+    for (var type in vehicleTypesList) {
+      final count = _vehicleQuantities[type] ?? 0;
+      final existing = _vehicles.where((v) => v.typeName == type).toList();
+
+      for (int i = 0; i < count; i++) {
+        if (i < existing.length) {
+          newVehicles.add(existing[i]);
+        } else {
+          newVehicles.add(
+            VehicleEntry(
+              controller: TextEditingController(),
+              typeName: type,
+              rcBookController: TextEditingController(),
+              maxWeightController: TextEditingController(),
+            ),
+          );
+        }
+      }
+
+      // Dispose controllers for removed vehicles
+      for (int i = count; i < existing.length; i++) {
+        existing[i].controller.dispose();
+        existing[i].rcBookController.dispose();
+        existing[i].maxWeightController.dispose();
+      }
+    }
+
+    _vehicles.clear();
+    _vehicles.addAll(newVehicles);
   }
 
   bool _isFormComplete() {
@@ -65,7 +136,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     if (_panFile == null || _licenseFile == null || _gstFile == null) {
       return false;
     }
-    if (_selectedVehicles.isEmpty) {
+    if (_totalVehicles == 0 || _totalVehicles > _maxTotalVehicles) {
       return false;
     }
     if (_vehicles.isEmpty) {
@@ -75,7 +146,9 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       if (vehicle.controller.text.trim().isEmpty ||
           vehicle.rcBookController.text.trim().isEmpty ||
           vehicle.maxWeightController.text.trim().isEmpty ||
-          vehicle.rcBookFile == null) {
+          vehicle.rcBookFile == null ||
+          vehicle.frontImage == null ||
+          vehicle.rearImage == null) {
         return false;
       }
     }
@@ -85,10 +158,15 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
   void _loadUserData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user != null) {
-      _nameController.text = authProvider.user!.name;
+      _nameController.text = authProvider.user!.name != 'Anonymous Seller'
+          ? authProvider.user!.name
+          : '';
       _addressController.text = authProvider.user!.address ?? '';
       _contactController.text = authProvider.user!.phone ?? '';
-      _emailController.text = authProvider.user!.email;
+      _emailController.text =
+          authProvider.user!.email != 'anonymous@seller.local'
+          ? authProvider.user!.email
+          : '';
     }
   }
 
@@ -200,8 +278,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       if (result != null) {
         final file = File(result.files.single.path!);
         final fileSize = await file.length();
-        if (fileSize > 5 * 1024 * 1024) {
-          SnackBarHelper.showError(context, 'File size must be less than 5MB');
+        if (fileSize > 1 * 1024 * 1024) {
+          SnackBarHelper.showError(context, 'File size must be less than 1MB');
           return;
         }
         setState(() {
@@ -225,12 +303,16 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
   }
 
   void _addVehicle({int? typeIndex}) {
-    if (_vehicles.length >= 2) {
-      SnackBarHelper.showError(context, 'Maximum 2 vehicles allowed');
+    if (_vehicles.length >= _maxTotalVehicles) {
+      SnackBarHelper.showError(
+        context,
+        'Maximum $_maxTotalVehicles vehicles allowed',
+      );
       return;
     }
-    final selectedTypeNames = _selectedVehicles
-        .map((i) => vehicleTypesList[i])
+    final selectedTypeNames = _vehicleQuantities.entries
+        .where((e) => e.value > 0)
+        .map((e) => e.key)
         .toList();
 
     if (selectedTypeNames.isEmpty) {
@@ -271,17 +353,16 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
 
   void _removeVehicle(int index) {
     setState(() {
+      final vehicleType = _vehicles[index].typeName;
       _vehicles[index].controller.dispose();
       _vehicles[index].rcBookController.dispose();
       _vehicles[index].maxWeightController.dispose();
       _vehicles.removeAt(index);
-      // Remove from selected vehicles and adjust indices
-      _selectedVehicles.remove(index);
-      // Adjust indices for vehicles after the removed one
-      final indicesToUpdate = _selectedVehicles.where((i) => i > index).toSet();
-      for (int i in indicesToUpdate) {
-        _selectedVehicles.remove(i);
-        _selectedVehicles.add(i - 1);
+
+      // Decrease the count in the spinner for this vehicle type
+      if (_vehicleQuantities.containsKey(vehicleType) &&
+          _vehicleQuantities[vehicleType]! > 0) {
+        _vehicleQuantities[vehicleType] = _vehicleQuantities[vehicleType]! - 1;
       }
     });
   }
@@ -295,16 +376,6 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       _vehicles[removalIndex].rcBookController.dispose();
       _vehicles[removalIndex].maxWeightController.dispose();
       _vehicles.removeAt(removalIndex);
-      // Remove from selected vehicles and adjust indices
-      _selectedVehicles.remove(removalIndex);
-      // Adjust indices for vehicles after the removed one
-      final indicesToUpdate = _selectedVehicles
-          .where((i) => i > removalIndex)
-          .toSet();
-      for (int i in indicesToUpdate) {
-        _selectedVehicles.remove(i);
-        _selectedVehicles.add(i - 1);
-      }
     }
   }
 
@@ -417,10 +488,14 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       SnackBarHelper.showError(context, 'Please fill all required fields');
       return;
     }
-    if (_selectedVehicles.isEmpty) {
+    if (_totalVehicles == 0) {
+      SnackBarHelper.showError(context, 'Please select at least one vehicle');
+      return;
+    }
+    if (_totalVehicles > _maxTotalVehicles) {
       SnackBarHelper.showError(
         context,
-        'Please select at least one vehicle type',
+        'Total vehicles cannot exceed $_maxTotalVehicles',
       );
       return;
     }
@@ -557,8 +632,9 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ),
         );
       }
-      final selectedVehicleTypes = _selectedVehicles
-          .map((index) => vehicleTypesList[index])
+      final selectedVehicleTypes = _vehicleQuantities.entries
+          .where((e) => e.value > 0)
+          .map((e) => e.key)
           .toList();
       final success = await sellerProvider.createSellerRegistration(
         userId: authProvider.user!.id,
@@ -574,6 +650,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         gstDocumentId: gstDocId,
         selectedVehicleTypes: selectedVehicleTypes,
         vehicles: vehicleInfoList,
+        vehicleCount: _totalVehicles,
       );
       setState(() => _isLoading = false);
       if (!mounted) return;
@@ -654,7 +731,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              _buildTopBar(),
+              // _buildTopBar(),
               Expanded(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -908,6 +985,49 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
     String documentType,
     bool hasFile,
   ) {
+    // Define max length and input formatters based on document type
+    int? maxLength;
+    List<TextInputFormatter> inputFormatters = [];
+
+    switch (documentType) {
+      case 'pan':
+        maxLength = 10;
+        inputFormatters = [
+          // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+          TextInputFormatter.withFunction((oldValue, newValue) {
+            return TextEditingValue(
+              text: newValue.text.toUpperCase(),
+              selection: newValue.selection,
+            );
+          }),
+        ];
+        break;
+      case 'license':
+        maxLength = 15;
+        inputFormatters = [
+          // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+          TextInputFormatter.withFunction((oldValue, newValue) {
+            return TextEditingValue(
+              text: newValue.text.toUpperCase(),
+              selection: newValue.selection,
+            );
+          }),
+        ];
+        break;
+      case 'gst':
+        maxLength = 15;
+        inputFormatters = [
+          // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+          TextInputFormatter.withFunction((oldValue, newValue) {
+            return TextEditingValue(
+              text: newValue.text.toUpperCase(),
+              selection: newValue.selection,
+            );
+          }),
+        ];
+        break;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -934,9 +1054,17 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 ),
                 child: TextFormField(
                   controller: controller,
+                  maxLength: maxLength,
+                  inputFormatters: inputFormatters,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Required';
+                    }
+                    if (documentType == 'pan' && value.length != 10) {
+                      return 'PAN must be 10 characters';
+                    }
+                    if (documentType == 'gst' && value.length != 15) {
+                      return 'GST must be 15 characters';
                     }
                     return null;
                   },
@@ -946,6 +1074,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                       color: AppColors.textLight.withOpacity(0.6),
                     ),
                     border: InputBorder.none,
+                    counterText: '',
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
@@ -1022,7 +1151,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ),
           child: const Center(
             child: Text(
-              'Select Vehicle',
+              'Select Vehicles (Max 10 Total)',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -1033,75 +1162,131 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1,
+        // Vehicle type selector with spinners
+        ...vehicleTypesList
+            .map((type) => _buildVehicleTypeSpinner(type))
+            .toList(),
+        const SizedBox(height: 16),
+        // Total vehicles counter
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _totalVehicles > _maxTotalVehicles
+                ? AppColors.danger.withOpacity(0.1)
+                : AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _totalVehicles > _maxTotalVehicles
+                  ? AppColors.danger
+                  : AppColors.primary,
+              width: 2,
+            ),
           ),
-          itemCount: 6,
-          itemBuilder: (context, index) {
-            final isSelected = _selectedVehicles.contains(index);
-            return GestureDetector(
-              onTap: () {
-                if (isSelected) {
-                  setState(() {
-                    _selectedVehicles.remove(index);
-                    _removeVehicleByType(vehicleTypesList[index]);
-                  });
-                } else {
-                  if (_selectedVehicles.length >= 2) {
-                    SnackBarHelper.showError(
-                      context,
-                      'Maximum 2 vehicle types allowed',
-                    );
-                    return;
-                  }
-                  setState(() {
-                    _selectedVehicles.add(index);
-                  });
-                  _addVehicle(typeIndex: index);
-                }
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.light,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.primaryDark
-                        : AppColors.secondary.withOpacity(0.2),
-                    width: 2,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.local_shipping,
-                      size: 40,
-                      color: isSelected ? AppColors.dark : AppColors.textDark,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      vehicleTypesList[index],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? AppColors.dark : AppColors.textDark,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Vehicles:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.dark,
                 ),
               ),
-            );
-          },
+              Text(
+                '$_totalVehicles / $_maxTotalVehicles',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _totalVehicles > _maxTotalVehicles
+                      ? AppColors.danger
+                      : AppColors.success,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVehicleTypeSpinner(String type) {
+    final currentCount = _vehicleQuantities[type] ?? 0;
+    final maxForThisType = currentCount + _remainingSlots;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: currentCount > 0
+              ? AppColors.primary.withOpacity(0.5)
+              : AppColors.secondary.withOpacity(0.2),
+          width: currentCount > 0 ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.local_shipping,
+            color: currentCount > 0 ? AppColors.primary : AppColors.textLight,
+            size: 28,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              type,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: currentCount > 0
+                    ? FontWeight.w700
+                    : FontWeight.w600,
+                color: currentCount > 0 ? AppColors.dark : AppColors.textDark,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.light,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.secondary.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove, color: AppColors.danger),
+                  onPressed: currentCount > 0
+                      ? () => _updateVehicleQuantity(type, currentCount - 1)
+                      : null,
+                ),
+                SizedBox(
+                  width: 50,
+                  child: Center(
+                    child: Text(
+                      currentCount.toString(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dark,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, color: AppColors.primary),
+                  onPressed: currentCount < maxForThisType
+                      ? () => _updateVehicleQuantity(type, currentCount + 1)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1132,8 +1317,12 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             ),
             const Spacer(),
             if (index > 0)
-              IconButton(
+              TextButton.icon(
                 icon: const Icon(Icons.delete, color: AppColors.danger),
+                label: const Text(
+                  'Delete',
+                  style: TextStyle(color: AppColors.danger),
+                ),
                 onPressed: () => _removeVehicle(index),
               ),
           ],
@@ -1147,6 +1336,16 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           ),
           child: TextFormField(
             controller: _vehicles[index].controller,
+            maxLength: 10,
+            inputFormatters: [
+              // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                return TextEditingValue(
+                  text: newValue.text.toUpperCase(),
+                  selection: newValue.selection,
+                );
+              }),
+            ],
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Required';
@@ -1164,6 +1363,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 horizontal: 16,
                 vertical: 14,
               ),
+              counterText: '',
             ),
           ),
         ),
@@ -1312,6 +1512,16 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 ),
                 child: TextFormField(
                   controller: _vehicles[index].rcBookController,
+                  maxLength: 15,
+                  inputFormatters: [
+                    // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+                    TextInputFormatter.withFunction((oldValue, newValue) {
+                      return TextEditingValue(
+                        text: newValue.text.toUpperCase(),
+                        selection: newValue.selection,
+                      );
+                    }),
+                  ],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Required';
@@ -1328,6 +1538,7 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
+                    counterText: '',
                   ),
                 ),
               ),
@@ -1342,10 +1553,10 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                 if (result != null) {
                   final file = File(result.files.single.path!);
                   final fileSize = await file.length();
-                  if (fileSize > 5 * 1024 * 1024) {
+                  if (fileSize > 1 * 1024 * 1024) {
                     SnackBarHelper.showError(
                       context,
-                      'File size must be less than 5MB',
+                      'File size must be less than 1MB',
                     );
                     return;
                   }
@@ -1402,10 +1613,10 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                   if (result != null) {
                     final file = File(result.files.single.path!);
                     final fileSize = await file.length();
-                    if (fileSize > 5 * 1024 * 1024) {
+                    if (fileSize > 1 * 1024 * 1024) {
                       SnackBarHelper.showError(
                         context,
-                        'Image size must be less than 5MB',
+                        'Image size must be less than 1MB',
                       );
                       return;
                     }
@@ -1437,10 +1648,10 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                   if (result != null) {
                     final file = File(result.files.single.path!);
                     final fileSize = await file.length();
-                    if (fileSize > 5 * 1024 * 1024) {
+                    if (fileSize > 1 * 1024 * 1024) {
                       SnackBarHelper.showError(
                         context,
-                        'Image size must be less than 5MB',
+                        'Image size must be less than 1MB',
                       );
                       return;
                     }
@@ -1461,6 +1672,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
               ),
             ],
           ),
+        SizedBox(height: 16),
+        Divider(thickness: 3),
       ],
     );
   }

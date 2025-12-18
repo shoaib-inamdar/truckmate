@@ -6,10 +6,12 @@ import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/models/booking_model.dart';
+import 'package:truckmate/models/business_transporter_model.dart';
 import 'package:truckmate/pages/customer_chat_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/services/seller_service.dart';
+import 'package:truckmate/services/business_transporter_service.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
 import 'package:truckmate/widgets/delivery_timeline.dart';
@@ -30,7 +32,10 @@ class _CustomerBookingDetailScreenState
   bool _isLoading = false;
   bool _showPaymentSection = false;
   String? _assignedSellerName;
+  String? _transporterType;
+  BusinessTransporterModel? _driverInfo;
   final _sellerService = SellerService();
+  final _businessTransporterService = BusinessTransporterService();
   final TextEditingController _transactionIdController =
       TextEditingController();
   Timer? _refreshTimer;
@@ -59,6 +64,7 @@ class _CustomerBookingDetailScreenState
     if (widget.booking.assignedTo != null &&
         widget.booking.assignedTo!.isNotEmpty) {
       _loadAssignedSellerName(widget.booking.assignedTo!);
+      _loadTransporterInfo(widget.booking.assignedTo!);
     }
     // Start auto-refresh timer
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -86,6 +92,12 @@ class _CustomerBookingDetailScreenState
         setState(() {
           _currentBooking = updatedBooking;
         });
+
+        // Reload transporter info if booking has an assigned seller
+        if (_currentBooking?.assignedTo != null &&
+            _currentBooking!.assignedTo!.isNotEmpty) {
+          _loadTransporterInfo(_currentBooking!.assignedTo!);
+        }
       }
     } catch (e) {
       // Silently fail refresh
@@ -107,6 +119,30 @@ class _CustomerBookingDetailScreenState
     }
   }
 
+  Future<void> _loadTransporterInfo(String sellerId) async {
+    try {
+      final seller = await _sellerService.getSellerByUserId(sellerId);
+      if (seller != null && mounted) {
+        setState(() {
+          _transporterType = seller['transporter_type'] as String?;
+        });
+
+        if (_transporterType == 'business_company' && _currentBooking != null) {
+          final driver = await _businessTransporterService.getDriverByBookingId(
+            _currentBooking!.id,
+          );
+          if (mounted) {
+            setState(() {
+              _driverInfo = driver;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
   Future<void> _pickPaymentScreenshot() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -115,8 +151,8 @@ class _CustomerBookingDetailScreenState
       if (result != null) {
         final file = File(result.files.single.path!);
         final fileSize = await file.length();
-        if (fileSize > 5 * 1024 * 1024) {
-          SnackBarHelper.showError(context, 'File size must be less than 5MB');
+        if (fileSize > 1 * 1024 * 1024) {
+          SnackBarHelper.showError(context, 'File size must be less than 1MB');
           return;
         }
         setState(() {
@@ -165,6 +201,30 @@ class _CustomerBookingDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.dark,
+        title: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.dark),
+              onPressed: () => Navigator.pop(context),
+            ),
+            const Expanded(
+              child: Text(
+                'Booking Details',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 48),
+          ],
+        ),
+      ),
       backgroundColor: AppColors.white,
       body: LoadingOverlay(
         isLoading: _isLoading,
@@ -172,7 +232,7 @@ class _CustomerBookingDetailScreenState
         child: SafeArea(
           child: Column(
             children: [
-              _buildTopBar(),
+              // _buildTopBar(),
               Expanded(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -227,7 +287,7 @@ class _CustomerBookingDetailScreenState
                               ),
                               const SizedBox(height: 16),
                               _buildInfoRow(
-                                'Assigned Seller',
+                                'Assigned Transporter',
                                 _assignedSellerName ??
                                     (_currentBooking!.assignedTo?.isNotEmpty ==
                                             true
@@ -242,6 +302,12 @@ class _CustomerBookingDetailScreenState
                         const SizedBox(height: 16),
                         _buildAssignedSellerCard(),
                         const SizedBox(height: 16),
+                        // Show driver info for business transporters
+                        if (_transporterType == 'business_company' &&
+                            _driverInfo != null) ...[
+                          _buildDriverInfoCard(),
+                          const SizedBox(height: 16),
+                        ],
                         // Show delivery timeline when booking is accepted or has journey state
                         if (_currentBooking!.bookingStatus?.toLowerCase() ==
                                 'accepted' ||
@@ -321,58 +387,39 @@ class _CustomerBookingDetailScreenState
           ),
         ],
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.dark),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Expanded(
-            child: Text(
-              'Booking Details',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.dark,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
     );
   }
 
   Widget _buildInfoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: const TextStyle(fontSize: 15),
-              children: [
-                TextSpan(
-                  text: '$label : ',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.dark,
+    return SingleChildScrollView(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 15),
+                children: [
+                  TextSpan(
+                    text: '$label : ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.dark,
+                    ),
                   ),
-                ),
-                TextSpan(
-                  text: value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textLight,
+                  TextSpan(
+                    text: value,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textLight,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -382,7 +429,7 @@ class _CustomerBookingDetailScreenState
       children: [
         Expanded(
           child: Text(
-            'Contact Admin :+91 9309049054 ',
+            'Contact Admin :+91 8265049054 ',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -391,14 +438,15 @@ class _CustomerBookingDetailScreenState
           ),
         ),
         InkWell(
-          onTap: () => FlutterPhoneDirectCaller.callNumber('+919309049054'),
+          onTap: () => FlutterPhoneDirectCaller.callNumber('+918265049054'),
           child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(
-              color: AppColors.success,
-              shape: BoxShape.circle,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage("assets/images/call.png"),
+                fit: BoxFit.cover,
+              ),
             ),
-            child: const Icon(Icons.phone, color: AppColors.white, size: 24),
+            padding: const EdgeInsets.all(18),
           ),
         ),
       ],
@@ -429,30 +477,141 @@ class _CustomerBookingDetailScreenState
               color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person, color: AppColors.primary),
+            child: const Icon(Icons.person, color: AppColors.success),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Assigned Seller',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _assignedSellerName ??
+                      (_currentBooking!.assignedTo?.isNotEmpty == true
+                          ? _currentBooking!.assignedTo!
+                          : 'Not assigned'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.dark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverInfoCard() {
+    if (_driverInfo == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              const Text(
-                'Assigned Seller',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.secondary,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.local_shipping,
+                  color: AppColors.success,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _assignedSellerName ??
-                    (_currentBooking!.assignedTo?.isNotEmpty == true
-                        ? _currentBooking!.assignedTo!
-                        : 'Not assigned'),
-                style: const TextStyle(
+              const SizedBox(width: 12),
+              const Text(
+                'Driver Details',
+                style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.dark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow('Driver Name', _driverInfo!.driverName),
+          const SizedBox(height: 12),
+          _buildInfoRow('Vehicle Number', _driverInfo!.vehicleNumber),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.phone, size: 20, color: AppColors.secondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Contact',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _driverInfo!.contact,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  try {
+                    await FlutterPhoneDirectCaller.callNumber(
+                      _driverInfo!.contact,
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    SnackBarHelper.showError(context, 'Could not place call');
+                  }
+                },
+                child: Container(
+                  height: 28,
+                  width: 28,
+                  decoration: BoxDecoration(
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/call.png'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             ],

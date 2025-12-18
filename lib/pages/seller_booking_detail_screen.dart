@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/models/booking_model.dart';
@@ -7,6 +9,8 @@ import 'package:truckmate/pages/shipping_map_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/services/booking_service.dart';
+import 'package:truckmate/services/business_transporter_service.dart';
+import 'package:truckmate/services/seller_service.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
 
@@ -32,11 +36,23 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
   Timer? _refreshTimer;
   late BookingModel _currentBooking;
   final BookingService _bookingService = BookingService();
+  final BusinessTransporterService _businessTransporterService =
+      BusinessTransporterService();
+  final SellerService _sellerService = SellerService();
+
+  // Driver assignment form controllers
+  final _driverNameController = TextEditingController();
+  final _vehicleNumberController = TextEditingController();
+  final _driverContactController = TextEditingController();
+  String? _transporterType;
+  bool _driverAssigned = false;
 
   @override
   void initState() {
     super.initState();
     _currentBooking = widget.booking;
+    _loadTransporterType();
+    _checkDriverAssignment();
     // Start auto-refresh timer - refresh every 2 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _refreshBookingData();
@@ -47,8 +63,42 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _driverNameController.dispose();
+    _vehicleNumberController.dispose();
+    _driverContactController.dispose();
     print('⏹️ Auto-refresh stopped for booking ${widget.booking.bookingId}');
     super.dispose();
+  }
+
+  Future<void> _loadTransporterType() async {
+    try {
+      final seller = await _sellerService.getSellerByUserId(
+        _currentBooking.assignedTo ?? '',
+      );
+      if (seller != null && mounted) {
+        setState(() {
+          _transporterType = seller['transporter_type'] as String?;
+        });
+        print('Transporter type: $_transporterType');
+      }
+    } catch (e) {
+      print('Error loading transporter type: $e');
+    }
+  }
+
+  Future<void> _checkDriverAssignment() async {
+    try {
+      final driver = await _businessTransporterService.getDriverByBookingId(
+        _currentBooking.id,
+      );
+      if (driver != null && mounted) {
+        setState(() {
+          _driverAssigned = true;
+        });
+      }
+    } catch (e) {
+      print('Error checking driver assignment: $e');
+    }
   }
 
   Future<void> _refreshBookingData() async {
@@ -138,7 +188,7 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'accepted':
-        return AppColors.primary;
+        return AppColors.success;
       case 'in_transit':
         return AppColors.warning;
       case 'delivered':
@@ -218,7 +268,39 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
       children: [
         _buildInfoRow('Name', _currentBooking.fullName, Icons.account_circle),
         const SizedBox(height: 12),
-        _buildInfoRow('Phone', _currentBooking.phoneNumber, Icons.phone),
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoRow(
+                'Phone',
+                _currentBooking.phoneNumber,
+                Icons.phone,
+              ),
+            ),
+            GestureDetector(
+              onTap: () async {
+                try {
+                  await FlutterPhoneDirectCaller.callNumber(
+                    _currentBooking.phoneNumber,
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  SnackBarHelper.showError(context, 'Could not place call');
+                }
+              },
+              child: Container(
+                height: 28,
+                width: 28,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/call.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
       ],
     );
@@ -278,7 +360,7 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 24),
+              Icon(icon, color: AppColors.success, size: 24),
               const SizedBox(width: 12),
               Text(
                 title,
@@ -389,6 +471,14 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
     final isAccepted = bookingStatus.toLowerCase() == 'accepted';
     final isInTransit = bookingStatus.toLowerCase() == 'in_transit';
     final isShippingDone = journeyState.toLowerCase() == 'shipping_done';
+    final isPaymentDone = journeyState.toLowerCase() == 'payment_done';
+
+    // If business_company and payment_done, show driver assignment form
+    if (_transporterType == 'business_company' &&
+        isPaymentDone &&
+        !_driverAssigned) {
+      return _buildDriverAssignmentForm();
+    }
 
     // If journey state is shipping_done, show Complete Journey button
     if (isShippingDone) {
@@ -425,8 +515,6 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
     // For other statuses (rejected, completed, etc.)
     return const SizedBox.shrink();
   }
-
- 
 
   Widget _buildStartShippingButton() {
     return SizedBox(
@@ -759,5 +847,181 @@ class _SellerBookingDetailScreenState extends State<SellerBookingDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildDriverAssignmentForm() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_add, color: AppColors.primary, size: 24),
+              const SizedBox(width: 12),
+              const Text(
+                'Assign Driver',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.dark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildDriverTextField(
+            'Driver Name',
+            'Enter driver name',
+            _driverNameController,
+          ),
+          const SizedBox(height: 12),
+          _buildDriverTextField(
+            'Vehicle Number',
+            'Enter vehicle number',
+            _vehicleNumberController,
+            maxLength: 15,
+            inputFormatters: [
+              // FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                return newValue.copyWith(text: newValue.text.toUpperCase());
+              }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildDriverTextField(
+            'Contact Number',
+            'Enter contact number',
+            _driverContactController,
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _handleDriverAssignment,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.dark,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Confirm Assignment',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverTextField(
+    String label,
+    String hint,
+    TextEditingController controller, {
+    TextInputType? keyboardType,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLength: maxLength,
+          inputFormatters: inputFormatters,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppColors.textLight.withOpacity(0.6)),
+            filled: true,
+            fillColor: AppColors.light,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            counterText: '',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleDriverAssignment() async {
+    if (_driverNameController.text.trim().isEmpty ||
+        _vehicleNumberController.text.trim().isEmpty ||
+        _driverContactController.text.trim().isEmpty) {
+      SnackBarHelper.showError(context, 'Please fill all fields');
+      return;
+    }
+
+    if (_driverContactController.text.trim().length != 10) {
+      SnackBarHelper.showError(context, 'Contact must be 10 digits');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Get the currently authenticated user's ID
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUserId = authProvider.user?.id;
+
+      if (currentUserId == null) {
+        throw 'User not authenticated';
+      }
+
+      print('Assigning driver with user_id: $currentUserId');
+
+      await _businessTransporterService.assignDriver(
+        driverName: _driverNameController.text.trim(),
+        vehicleNumber: _vehicleNumberController.text.trim(),
+        contact: _driverContactController.text.trim(),
+        userId: currentUserId,
+        bookingId: _currentBooking.id,
+      );
+
+      setState(() {
+        _isLoading = false;
+        _driverAssigned = true;
+      });
+
+      if (!mounted) return;
+      SnackBarHelper.showSuccess(context, 'Driver assigned successfully!');
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      SnackBarHelper.showError(context, 'Error: $e');
+    }
   }
 }

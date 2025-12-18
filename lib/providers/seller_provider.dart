@@ -38,6 +38,7 @@ class SellerProvider with ChangeNotifier {
     String? gstDocumentId,
     required List<String> selectedVehicleTypes,
     required List<VehicleInfo> vehicles,
+    required int vehicleCount,
   }) async {
     try {
       _status = SellerStatus.loading;
@@ -61,6 +62,52 @@ class SellerProvider with ChangeNotifier {
         gstDocumentId: gstDocumentId,
         selectedVehicleTypes: selectedVehicleTypes,
         vehicles: vehicles,
+        vehicleCount: vehicleCount,
+      );
+      _status = SellerStatus.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = SellerStatus.error;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> createBusinessRegistration({
+    required String userId,
+    required String companyName,
+    required String contact,
+    required String address,
+    required String email,
+    required String gstNo,
+    String? gstDocumentId,
+    required String panCardNo,
+    String? panDocumentId,
+    required String transportLicenseNo,
+    String? transportLicenseDocumentId,
+  }) async {
+    try {
+      _status = SellerStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+      final isAuthenticated = await _sellerService.isUserAuthenticated();
+      if (!isAuthenticated) {
+        throw 'User not authenticated. Please login again.';
+      }
+      _sellerRegistration = await _sellerService.createBusinessRegistration(
+        userId: userId,
+        companyName: companyName,
+        contact: contact,
+        address: address,
+        email: email,
+        gstNo: gstNo,
+        gstDocumentId: gstDocumentId,
+        panCardNo: panCardNo,
+        panDocumentId: panDocumentId,
+        transportLicenseNo: transportLicenseNo,
+        transportLicenseDocumentId: transportLicenseDocumentId,
       );
       _status = SellerStatus.success;
       notifyListeners();

@@ -44,6 +44,7 @@ dependencies:
   smooth_page_indicator: ^1.1.0
   file_picker: ^10.3.7
   url_launcher: ^6.2.2
+  app_links: ^6.4.1
   syncfusion_flutter_pdfviewer: ^28.1.36
   share_plus: ^10.1.4
   open_file: ^3.3.2
@@ -53,6 +54,7 @@ dependencies:
   webview_flutter: ^4.10.0
   flutter_launcher_icons: ^0.14.4
   flutter_phone_direct_caller: ^2.2.1
+  spinner_input_plus: ^0.0.3
 
 dev_dependencies:
   # flutter_launcher_icons: "^0.14.4"

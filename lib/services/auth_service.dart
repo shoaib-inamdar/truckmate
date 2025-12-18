@@ -194,6 +194,16 @@ class AuthService {
     }
   }
 
+  Future<void> sendPasswordRecovery(String email, String recoveryUrl) async {
+    try {
+      await _account.createRecovery(email: email, url: recoveryUrl);
+    } on AppwriteException catch (e) {
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      throw 'Failed to send recovery email: ${e.toString()}';
+    }
+  }
+
   Future<void> completePasswordRecovery({
     required String userId,
     required String secret,
@@ -214,21 +224,31 @@ class AuthService {
 
   Future<void> deleteAllSessionsSafely() async {
     try {
-      print('Attempting to delete all sessions...');
-      try {
-        await _account.deleteSession(sessionId: 'current');
-        print('Deleted current session');
-      } catch (e) {
-        print('Could not delete current session: ${e.toString()}');
-      }
+      print('🔄 Attempting to delete all sessions...');
+
+      // The most reliable way: use deleteSessions() which deletes all sessions at once
       try {
         await _account.deleteSessions();
-        print('Deleted all sessions');
+        print('✅ Successfully deleted all sessions using deleteSessions()');
+        // Give Appwrite time to process
+        await Future.delayed(Duration(milliseconds: 300));
       } catch (e) {
-        print('Could not delete all sessions: ${e.toString()}');
+        print('⚠️ deleteSessions() failed: $e');
+
+        // Fallback: try to delete just the current session
+        try {
+          await _account.deleteSession(sessionId: 'current');
+          print('✅ Successfully deleted current session');
+          await Future.delayed(Duration(milliseconds: 300));
+        } catch (e2) {
+          print('⚠️ Could not delete current session either: $e2');
+          print('ℹ️ No sessions to delete or already expired');
+        }
       }
+
+      print('✅ Session cleanup complete - ready for new login');
     } catch (e) {
-      print('Error in deleteAllSessionsSafely: ${e.toString()}');
+      print('❌ Unexpected error in deleteAllSessionsSafely: $e');
     }
   }
 

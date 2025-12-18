@@ -4,6 +4,7 @@ import 'package:truckmate/pages/seller_choice_screen.dart';
 import 'package:truckmate/main.dart' hide AppColors;
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class ChooseLoginScreen extends StatelessWidget {
   const ChooseLoginScreen({super.key});
   @override

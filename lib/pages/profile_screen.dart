@@ -178,6 +178,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                       hint: 'Enter your phone number',
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      maxLength: 10,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Phone number is required';

@@ -63,8 +63,8 @@ class BookingService {
     try {
       print('Uploading payment screenshot for booking: $bookingId');
       final fileSize = await file.length();
-      if (fileSize > 5 * 1024 * 1024) {
-        throw 'File size exceeds 5MB limit';
+      if (fileSize > 1 * 1024 * 1024) {
+        throw 'File size exceeds 1MB limit';
       }
       final userId = await _getCurrentUserId();
       if (userId == null) {

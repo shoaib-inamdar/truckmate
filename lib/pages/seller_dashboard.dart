@@ -10,6 +10,7 @@ import 'package:truckmate/providers/auth_provider.dart';
 import 'package:truckmate/providers/booking_provider.dart';
 import 'package:truckmate/providers/seller_provider.dart';
 import 'package:truckmate/services/seller_service.dart';
+import 'package:truckmate/services/vehicle_request_service.dart';
 import 'package:truckmate/models/booking_model.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
@@ -24,6 +25,8 @@ class _SellerDashboardState extends State<SellerDashboard> {
   bool _hasLoadedSellerBookings = false;
   Timer? _refreshTimer;
   String? _originalUserId; // Store the original user_id from seller_request
+  Map<String, dynamic>? _vehicleRequest; // Store pending vehicle request
+  String? _transporterType; // Store transporter type
 
   @override
   void initState() {
@@ -32,12 +35,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
       _loadSellerBookings();
       _loadSellerData();
       _fetchOriginalUserId();
-    });
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) return;
-      // Refresh data for all tabs
-      _loadSellerBookings();
-      _loadSellerData();
+      _loadVehicleRequestStatus();
     });
   }
 
@@ -51,7 +49,28 @@ class _SellerDashboardState extends State<SellerDashboard> {
           children: [
             Image.asset('assets/images/logo.png', height: 40, width: 40),
             const SizedBox(width: 10),
-            const Text('Cargo Balancer'),
+            RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Cargo ',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Balancer',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         backgroundColor: AppColors.dark,
@@ -108,9 +127,180 @@ class _SellerDashboardState extends State<SellerDashboard> {
   Future<void> _loadSellerData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final sellerProvider = Provider.of<SellerProvider>(context, listen: false);
-    final userId = authProvider.user?.id;
-    if (userId != null) {
-      await sellerProvider.loadSellerRegistration(userId);
+
+    // Use original user ID (from seller_request table) to load seller registration
+    String? userIdForLoad = _originalUserId;
+
+    // If original user ID is not yet loaded, fetch it from email
+    if (userIdForLoad == null) {
+      final email = authProvider.user?.email;
+      if (email != null) {
+        try {
+          final sellerService = SellerService();
+          userIdForLoad = await sellerService.getOriginalUserIdByEmail(email);
+        } catch (e) {
+          print('Error fetching original user ID: $e');
+        }
+      }
+    }
+
+    if (userIdForLoad != null) {
+      await sellerProvider.loadSellerRegistration(userIdForLoad);
+      await _loadTransporterType();
+    }
+  }
+
+  Future<void> _loadTransporterType() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final email = authProvider.user?.email;
+    if (email == null) return;
+
+    try {
+      final sellerService = SellerService();
+      final originalUserId = await sellerService.getOriginalUserIdByEmail(
+        email,
+      );
+      if (originalUserId == null) return;
+
+      final credentials = await sellerService.getSellerCredentials(
+        originalUserId,
+      );
+      if (credentials != null && mounted) {
+        setState(() {
+          _transporterType = credentials['transporter_type'];
+        });
+      }
+    } catch (e) {
+      print('Error loading transporter type: $e');
+    }
+  }
+
+  Future<void> _loadVehicleRequestStatus() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Use original user ID from state if available
+    String? userIdForLoad = _originalUserId;
+
+    // If original user ID is not yet loaded, fetch it from email
+    if (userIdForLoad == null) {
+      final email = authProvider.user?.email;
+      if (email != null) {
+        try {
+          final sellerService = SellerService();
+          userIdForLoad = await sellerService.getOriginalUserIdByEmail(email);
+          if (mounted) {
+            setState(() {
+              _originalUserId = userIdForLoad;
+            });
+          }
+        } catch (e) {
+          print('Error fetching original user ID: $e');
+        }
+      }
+    }
+
+    // Load transporter type if not yet loaded
+    if (_transporterType == null && userIdForLoad != null) {
+      try {
+        final sellerService = SellerService();
+        final credentials = await sellerService.getSellerCredentials(
+          userIdForLoad,
+        );
+        if (credentials != null && mounted) {
+          setState(() {
+            _transporterType = credentials['transporter_type'];
+          });
+        }
+      } catch (e) {
+        print('Error loading transporter type: $e');
+      }
+    }
+
+    if (userIdForLoad == null) return;
+
+    try {
+      final vehicleRequestService = VehicleRequestService();
+      final request = await vehicleRequestService.getPendingVehicleRequest(
+        userIdForLoad,
+      );
+      if (mounted) {
+        setState(() {
+          _vehicleRequest = request;
+        });
+
+        // Show rejection popup if status is rejected
+        if (request != null && request['status'] == 'rejected') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showRejectionDialog(request);
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading vehicle request: $e');
+    }
+  }
+
+  Future<void> _showRejectionDialog(Map<String, dynamic> request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.cancel, color: AppColors.danger, size: 32),
+            SizedBox(width: 12),
+            Text('Request Rejected'),
+          ],
+        ),
+        content: Text(
+          'Your vehicle addition request has been rejected by the admin. '
+          '${request['rejection_reason'] ?? 'No reason provided'}.\n\n'
+          'The request will be removed.',
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.dark,
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final userId = authProvider.user?.id;
+        final vehicleRequestService = VehicleRequestService();
+        await vehicleRequestService.deleteVehicleRequest(
+          request['\$id'],
+          userId ?? '',
+        );
+        if (mounted) {
+          setState(() {
+            _vehicleRequest = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Request removed'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error removing request: $e'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -174,118 +364,98 @@ class _SellerDashboardState extends State<SellerDashboard> {
     final bookingProvider = Provider.of<BookingProvider>(context);
     final sellerProvider = Provider.of<SellerProvider>(context);
     final activeBookingsCount = bookingProvider.bookings.length;
-    final vehicleCount =
-        sellerProvider.sellerRegistration?.selectedVehicleTypes.length ?? 0;
+    final vehicleCount = sellerProvider.sellerRegistration?.vehicleCount ?? 0;
     print('🟢 _buildHomeTab: _originalUserId = $_originalUserId');
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadSellerData();
+        await _loadSellerBookings();
+        await _loadVehicleRequestStatus();
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              height: 150,
+              decoration: BoxDecoration(
+                image: new DecorationImage(
+                  image: AssetImage("assets/images/Cargo1.png"),
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 24),
+            const Text(
+              'Overview',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.3,
               children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.dark.withOpacity(0.8),
-                    fontWeight: FontWeight.w600,
-                  ),
+                _buildStatCard(
+                  icon: Icons.assignment,
+                  title: 'Active Bookings',
+                  value: '$activeBookingsCount',
+                  color: AppColors.success,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  authProvider.user?.name ?? 'Seller',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.dark,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Approved Transporter',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.dark.withOpacity(0.7),
-                    fontWeight: FontWeight.w500,
-                  ),
+                _buildStatCard(
+                  icon: Icons.local_shipping,
+                  title: 'My Vehicles',
+                  value: '$vehicleCount',
+                  color: AppColors.success,
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Overview',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.dark,
-            ),
-          ),
-          const SizedBox(height: 16),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.3,
-            children: [
-              _buildStatCard(
-                icon: Icons.assignment,
-                title: 'Active Bookings',
-                value: '$activeBookingsCount',
-                color: AppColors.success,
-              ),
-              _buildStatCard(
-                icon: Icons.local_shipping,
-                title: 'My Vehicles',
-                value: '$vehicleCount',
-                color: AppColors.success,
-              ),
+            const SizedBox(height: 24),
+            // Vehicle Request Status Card (only for non-business transporters)
+            if (_transporterType != null &&
+                _transporterType != 'business_company' &&
+                _vehicleRequest != null) ...[
+              _buildVehicleRequestCard(),
+              const SizedBox(height: 24),
             ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Availability',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.dark,
+            const Text(
+              'Availability',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _buildAvailabilitySection(
-            sellerProvider: sellerProvider,
-            userId: _originalUserId ?? authProvider.user?.id ?? '',
-            originalUserId: _originalUserId,
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Need Help?',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppColors.dark,
+            const SizedBox(height: 12),
+            _buildAvailabilitySection(
+              sellerProvider: sellerProvider,
+              userId: _originalUserId ?? authProvider.user?.id ?? '',
+              originalUserId: _originalUserId,
             ),
-          ),
-          const SizedBox(height: 12),
-          _buildCallAdminButton(),
-          const SizedBox(height: 16),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 24),
+            const Text(
+              'Need Help?',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildCallAdminButton(),
+          ],
+        ),
       ),
     );
   }
@@ -294,7 +464,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
     return InkWell(
       onTap: () async {
         try {
-          await FlutterPhoneDirectCaller.callNumber('+919309049054');
+          await FlutterPhoneDirectCaller.callNumber('+918265049054');
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -313,7 +483,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
           color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.success.withOpacity(0.3),
             width: 2,
           ),
           boxShadow: [
@@ -334,7 +504,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
               ),
               child: const Icon(
                 Icons.phone,
-                color: AppColors.primary,
+                color: AppColors.success,
                 size: 24,
               ),
             ),
@@ -353,7 +523,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '+91 93090 49054',
+                    '+91 8265049054',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.secondary,
@@ -370,6 +540,110 @@ class _SellerDashboardState extends State<SellerDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVehicleRequestCard() {
+    if (_vehicleRequest == null) return const SizedBox.shrink();
+
+    final status = _vehicleRequest!['status'] ?? 'pending';
+    final vehicles = _vehicleRequest!['vehicles'] as List? ?? [];
+
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+
+    switch (status) {
+      case 'pending':
+        statusColor = AppColors.warning;
+        statusIcon = Icons.hourglass_empty;
+        statusText = 'Pending Review';
+        break;
+      case 'approved':
+        statusColor = AppColors.success;
+        statusIcon = Icons.check_circle;
+        statusText = 'Approved';
+        break;
+      case 'rejected':
+        statusColor = AppColors.danger;
+        statusIcon = Icons.cancel;
+        statusText = 'Rejected';
+        break;
+      default:
+        statusColor = AppColors.secondary;
+        statusIcon = Icons.info;
+        statusText = 'Unknown';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Vehicle Addition Request',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.dark,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You have requested to add ${vehicles.length} vehicle(s).',
+            style: const TextStyle(fontSize: 14, color: AppColors.textLight),
+          ),
+          if (status == 'pending') ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Your request is being reviewed by the admin.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.secondary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -443,6 +717,8 @@ class _SellerDashboardState extends State<SellerDashboard> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Availability updated')),
             );
+            // Refresh seller data after confirming availability
+            _loadSellerData();
           } else if (!ok && mounted) {
             print(
               '❌ AvailabilitySection: Failed - error: ${sellerProvider.errorMessage}',

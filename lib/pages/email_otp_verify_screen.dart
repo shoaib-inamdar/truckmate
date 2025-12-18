@@ -2,13 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
-import 'package:truckmate/pages/book_transport.dart';
 import 'package:truckmate/pages/homepage.dart';
 import 'package:truckmate/pages/profile_screen.dart';
 import '../../providers/email_otp_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:truckmate/pages/seller_registration_screen.dart';
+import 'package:truckmate/pages/transporter_registration_tabs.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/snackbar_helper.dart';
@@ -93,7 +92,9 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
             role: 'seller',
           );
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SellerRegistrationScreen()),
+            MaterialPageRoute(
+              builder: (_) => const TransporterRegistrationTabs(),
+            ),
             (route) => false,
           );
         } else {
@@ -257,7 +258,7 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
                                 : 'Resend in ${_resendTimer}s',
                             style: TextStyle(
                               color: _canResend
-                                  ? AppColors.primary
+                                  ? AppColors.success
                                   : AppColors.textLight,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,

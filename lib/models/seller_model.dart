@@ -67,6 +67,7 @@ class SellerModel {
   final String? gstDocumentId;
   final List<String> selectedVehicleTypes;
   final List<VehicleInfo> vehicles;
+  final int vehicleCount;
   final DateTime createdAt;
   final String status; // pending, approved, rejected
   final String availability; // free, engage, return_available
@@ -86,6 +87,7 @@ class SellerModel {
     this.gstDocumentId,
     required this.selectedVehicleTypes,
     required this.vehicles,
+    required this.vehicleCount,
     required this.createdAt,
     this.status = 'pending',
     this.availability = 'free',
@@ -113,6 +115,7 @@ class SellerModel {
               ?.map((v) => VehicleInfo.fromJson(v))
               .toList() ??
           [],
+      vehicleCount: json['vehicle_count'] ?? 0,
       createdAt: DateTime.parse(
         json['\$createdAt'] ?? DateTime.now().toIso8601String(),
       ),
@@ -136,6 +139,7 @@ class SellerModel {
       'gst_document_id': gstDocumentId,
       'selected_vehicle_types': selectedVehicleTypes,
       'vehicles': vehicles.map((v) => v.toJson()).toList(),
+      'vehicle_count': vehicleCount,
       'status': status,
       'availability': availability,
       'return_location': returnLocation,

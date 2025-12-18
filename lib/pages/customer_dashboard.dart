@@ -72,7 +72,17 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHero(auth.user?.name ?? 'Customer'),
+            Container(
+              width: double.infinity,
+              height: 150,
+              decoration: BoxDecoration(
+                image: new DecorationImage(
+                  image: AssetImage("assets/images/Cargo2.png"),
+                  fit: BoxFit.cover,
+                ), borderRadius: BorderRadius.circular(20)
+              ),
+            ),
+            // _buildHero(auth.user?.name ?? 'Customer'),
             const SizedBox(height: 24),
             const Text(
               'Overview',
@@ -144,6 +154,7 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
               const SizedBox(height: 24),
               const Center(child: CircularProgressIndicator()),
             ],
+            SizedBox(height: 200,)
           ],
         ),
       ),

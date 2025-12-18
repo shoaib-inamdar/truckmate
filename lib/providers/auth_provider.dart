@@ -3,7 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+
 enum AuthStatus { uninitialized, authenticated, unauthenticated, loading }
+
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final UserService _userService = UserService();
@@ -35,6 +37,7 @@ class AuthProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+
   Future<bool> register({
     required String email,
     required String password,
@@ -67,6 +70,7 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
   Future<bool> login({required String email, required String password}) async {
     try {
       _status = AuthStatus.loading;
@@ -86,6 +90,7 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
   Future<bool> createAnonymousSession() async {
     try {
       _status = AuthStatus.loading;
@@ -102,6 +107,7 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
   Future<void> deleteCurrentAnonymousSession() async {
     try {
       await _authService.deleteCurrentAnonymousSession();
@@ -112,6 +118,17 @@ class AuthProvider with ChangeNotifier {
       print('Error deleting anonymous session: $e');
     }
   }
+
+  Future<void> deleteAllExistingSessions() async {
+    try {
+      print('AuthProvider: Attempting to delete all existing sessions');
+      await _authService.deleteAllSessionsSafely();
+      print('AuthProvider: All sessions deleted successfully');
+    } catch (e) {
+      print('AuthProvider: Error deleting sessions: $e');
+    }
+  }
+
   Future<void> setUserAfterOTP(UserModel user, {String? role}) async {
     try {
       _user = user;
@@ -134,6 +151,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
   Future<bool> updateUserProfile({
     required String name,
     required String phone,
@@ -178,6 +196,7 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
   Future<void> logout() async {
     try {
       print('AuthProvider: Starting logout...');
@@ -203,6 +222,7 @@ class AuthProvider with ChangeNotifier {
       print('AuthProvider: Error handled, state cleared anyway');
     }
   }
+
   Future<bool> updateName(String name) async {
     try {
       _status = AuthStatus.loading;
@@ -218,10 +238,12 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
+
   Future<void> refreshUser() async {
     try {
       _user = await _userService.getCurrentUserWithProfile();
@@ -229,6 +251,40 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+    }
+  }
+
+  /// Initiates password recovery by sending a recovery email
+  Future<bool> sendPasswordRecovery(String email, String recoveryUrl) async {
+    try {
+      _errorMessage = null;
+      await _authService.sendPasswordRecovery(email, recoveryUrl);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Completes password recovery with userId, secret, and new password
+  Future<bool> completePasswordRecovery({
+    required String userId,
+    required String secret,
+    required String newPassword,
+  }) async {
+    try {
+      _errorMessage = null;
+      await _authService.completePasswordRecovery(
+        userId: userId,
+        secret: secret,
+        password: newPassword,
+      );
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
     }
   }
 }
