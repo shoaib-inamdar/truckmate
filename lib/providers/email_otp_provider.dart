@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/email_otp_service.dart';
+
 enum EmailOTPStatus {
   initial,
   sendingOTP,
@@ -9,6 +10,7 @@ enum EmailOTPStatus {
   verified,
   error,
 }
+
 class EmailOTPProvider with ChangeNotifier {
   final EmailOTPService _emailOTPService = EmailOTPService();
   EmailOTPStatus _status = EmailOTPStatus.initial;
@@ -41,6 +43,16 @@ class EmailOTPProvider with ChangeNotifier {
       return false;
     }
   }
+
+  /// Set userId and email directly (used for forgot password flow)
+  void setUserIdAndEmail(String userId, String email) {
+    print('Setting userId: $userId, email: $email');
+    _userId = userId;
+    _email = email;
+    _status = EmailOTPStatus.otpSent;
+    notifyListeners();
+  }
+
   Future<bool> verifyEmailOTP(String otp) async {
     print('=== PROVIDER: Verify Email OTP ===');
     print('OTP received: $otp');
@@ -78,6 +90,7 @@ class EmailOTPProvider with ChangeNotifier {
       return false;
     }
   }
+
   Future<bool> resendOTP() async {
     if (_email == null) {
       _errorMessage = 'Email not found';
@@ -87,6 +100,7 @@ class EmailOTPProvider with ChangeNotifier {
     }
     return await sendEmailOTP(_email!);
   }
+
   Future<void> logout() async {
     try {
       await _emailOTPService.logout();
@@ -101,10 +115,12 @@ class EmailOTPProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
+
   void reset() {
     _status = EmailOTPStatus.initial;
     _userId = null;
@@ -112,6 +128,7 @@ class EmailOTPProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
   Future<bool> checkAuthStatus() async {
     try {
       final isLoggedIn = await _emailOTPService.isLoggedIn();

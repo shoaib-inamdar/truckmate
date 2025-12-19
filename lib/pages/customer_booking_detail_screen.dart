@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:truckmate/models/booking_model.dart';
 import 'package:truckmate/models/business_transporter_model.dart';
 import 'package:truckmate/pages/customer_chat_screen.dart';
@@ -140,6 +142,62 @@ class _CustomerBookingDetailScreenState
       }
     } catch (e) {
       // Silently fail
+    }
+  }
+
+  Future<void> _downloadQRCode() async {
+    try {
+      setState(() => _isLoading = true);
+
+      // Get the Downloads directory
+      late Directory downloadsDirectory;
+
+      if (Platform.isAndroid) {
+        // For Android, use external storage downloads
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          // Navigate to Downloads folder
+          downloadsDirectory = Directory(
+            '${externalDir.path.split('/Android')[0]}/Download',
+          );
+        } else {
+          throw 'Could not access external storage';
+        }
+      } else if (Platform.isIOS) {
+        // For iOS, use application documents directory
+        downloadsDirectory = await getApplicationDocumentsDirectory();
+      } else {
+        throw 'Unsupported platform';
+      }
+
+      // Create directory if it doesn't exist
+      if (!await downloadsDirectory.exists()) {
+        await downloadsDirectory.create(recursive: true);
+      }
+
+      // Load the asset image
+      final ByteData data = await rootBundle.load('assets/images/payment.png');
+      final List<int> bytes = data.buffer.asUint8List();
+
+      // Save the file
+      final fileName = 'PaymentQR_${DateTime.now().millisecondsSinceEpoch}.png';
+      final File file = File('${downloadsDirectory.path}/$fileName');
+      await file.writeAsBytes(bytes);
+
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      // Show download notification
+      SnackBarHelper.showSuccess(context, '✓ Downloaded: $fileName');
+
+      // For Android, show a more detailed notification
+      if (Platform.isAndroid) {
+        SnackBarHelper.showInfo(context, 'Check your Downloads folder');
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      SnackBarHelper.showError(context, 'Failed to download QR Code: $e');
     }
   }
 
@@ -485,7 +543,7 @@ class _CustomerBookingDetailScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Assigned Seller',
+                  'Assigned Transporter',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -706,7 +764,6 @@ class _CustomerBookingDetailScreenState
           ),
           const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.light,
               borderRadius: BorderRadius.circular(12),
@@ -718,30 +775,34 @@ class _CustomerBookingDetailScreenState
             child: Column(
               children: [
                 Container(
-                  width: 200,
-                  height: 200,
+                  width: 250,
+                  height: 250,
                   decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.qr_code,
-                      size: 150,
-                      color: AppColors.dark,
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/payment.png'),
+                      fit: BoxFit.contain,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Scan QR Code to Pay',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.dark,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _downloadQRCode,
+              icon: const Icon(Icons.download),
+              label: const Text('Download QR Code'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.dark,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 30),

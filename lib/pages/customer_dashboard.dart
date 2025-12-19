@@ -154,7 +154,7 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
               const SizedBox(height: 24),
               const Center(child: CircularProgressIndicator()),
             ],
-            SizedBox(height: 200,)
+            // SizedBox(height: 200,)
           ],
         ),
       ),

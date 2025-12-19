@@ -6,7 +6,11 @@ import 'package:truckmate/config/appwrite_config.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/pages/password_reset_screen.dart';
 import 'package:truckmate/pages/seller_dashboard.dart';
+import 'package:truckmate/pages/email_otp_verify_screen.dart';
 import 'package:truckmate/providers/auth_provider.dart';
+import 'package:truckmate/providers/email_otp_provider.dart';
+import 'package:truckmate/services/seller_service.dart';
+import 'package:truckmate/services/email_otp_service.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
 
@@ -104,96 +108,143 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
   }
 
   Future<void> _handleForgotPassword() async {
-    // Show dialog to get email
-    final emailController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    // Show dialog to get phone number
+    final phoneController = TextEditingController();
+    bool isSearching = false;
+
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.lock_reset, color: AppColors.primary),
-            SizedBox(width: 12),
-            Text('Reset Password'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your registered email address. We will send you a password reset link.',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'Email address',
-                filled: true,
-                fillColor: AppColors.light,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset, color: AppColors.primary),
+              SizedBox(width: 12),
+              Text('Reset Password'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enter your registered phone number. We will send you an OTP to reset your password.',
+                  style: TextStyle(fontSize: 14),
                 ),
-                prefixIcon: const Icon(Icons.email_outlined),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  enabled: !isSearching,
+                  decoration: InputDecoration(
+                    hintText: 'Phone number',
+                    filled: true,
+                    fillColor: AppColors.light,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSearching
+                  ? null
+                  : () => Navigator.pop(context, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textDark),
               ),
             ),
+            ElevatedButton(
+              onPressed: isSearching
+                  ? null
+                  : () async => await _handleForgotPasswordSubmit(
+                      phoneController.text.trim(),
+                      dialogContext,
+                      setState,
+                    ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.dark,
+              ),
+              child: isSearching
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.dark,
+                        ),
+                      ),
+                    )
+                  : const Text('Send OTP'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textDark),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.dark,
-            ),
-            child: const Text('Send Reset Link'),
-          ),
-        ],
       ),
     );
+  }
 
-    if (confirmed != true || emailController.text.trim().isEmpty) {
+  Future<void> _handleForgotPasswordSubmit(
+    String phoneNumber,
+    BuildContext dialogContext,
+    StateSetter setState,
+  ) async {
+    if (phoneNumber.isEmpty) {
+      SnackBarHelper.showError(context, 'Please enter your phone number');
       return;
     }
 
-    setState(() => _isLoading = true);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     try {
-      // Using custom URL scheme for app deep linking
-      // The URL must match the intent-filter in AndroidManifest.xml
-      final success = await authProvider.sendPasswordRecovery(
-        emailController.text.trim(),
-        'truckmate://reset-password',
-      );
+      final sellerService = SellerService();
+      final email = await sellerService.getEmailByPhoneNumber(phoneNumber);
 
-      setState(() => _isLoading = false);
-
-      if (!mounted) return;
-
-      if (success) {
-        SnackBarHelper.showSuccess(
-          context,
-          'Password reset instructions sent to your email',
-        );
-      } else {
+      if (email == null) {
+        if (!mounted) return;
+        Navigator.of(dialogContext).pop();
         SnackBarHelper.showError(
           context,
-          authProvider.errorMessage ?? 'Failed to send reset email',
+          'No seller account found with this phone number',
         );
+        return;
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
+
+      // Send OTP to the email
+      final emailOTPService = EmailOTPService();
+      final userId = await emailOTPService.sendEmailOTP(email: email);
+
       if (!mounted) return;
+      Navigator.of(dialogContext).pop();
+
+      SnackBarHelper.showSuccess(context, 'OTP sent to $email');
+
+      // Set userId and email in the provider before navigating
+      if (mounted) {
+        final emailOTPProvider = Provider.of<EmailOTPProvider>(
+          context,
+          listen: false,
+        );
+        emailOTPProvider.setUserIdAndEmail(userId, email);
+      }
+
+      // Navigate to OTP verification screen with isPasswordReset=true
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              EmailOTPVerifyScreen(email: email, isPasswordReset: true),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(dialogContext).pop();
       SnackBarHelper.showError(context, 'Error: ${e.toString()}');
     }
   }

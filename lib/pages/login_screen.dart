@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/email_otp_provider.dart';
 import '../../utils/validators.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/snackbar_helper.dart';
+import '../../services/seller_service.dart';
+import '../../services/email_otp_service.dart';
+import 'email_otp_verify_screen.dart';
 import 'register_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
+
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -24,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -43,6 +50,154 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
   }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final phoneController = TextEditingController();
+    bool isSearching = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text(
+            'Reset Password',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.dark,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enter your phone number to receive an OTP for password reset.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textDark,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  enabled: !isSearching,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: 'Enter your phone number',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    prefixIcon: const Icon(Icons.phone),
+                    filled: true,
+                    fillColor: AppColors.light,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSearching ? null : () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.secondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: isSearching
+                  ? null
+                  : () async => await _handleForgotPassword(
+                      phoneController.text.trim(),
+                      dialogContext,
+                      setState,
+                    ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              child: isSearching
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.dark,
+                        ),
+                      ),
+                    )
+                  : const Text('Send OTP'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleForgotPassword(
+    String phoneNumber,
+    BuildContext dialogContext,
+    StateSetter setState,
+  ) async {
+    if (phoneNumber.isEmpty) {
+      SnackBarHelper.showError(context, 'Please enter your phone number');
+      return;
+    }
+
+    setState(() {
+      // isSearching = true; // This will be updated in parent setState
+    });
+
+    try {
+      final sellerService = SellerService();
+      final email = await sellerService.getEmailByPhoneNumber(phoneNumber);
+
+      if (email == null) {
+        if (!mounted) return;
+        Navigator.of(dialogContext).pop();
+        SnackBarHelper.showError(
+          context,
+          'No seller account found with this phone number',
+        );
+        return;
+      }
+
+      // Send OTP to the email
+      final emailOTPService = EmailOTPService();
+      final userId = await emailOTPService.sendEmailOTP(email: email);
+
+      if (!mounted) return;
+      Navigator.of(dialogContext).pop();
+
+      SnackBarHelper.showSuccess(context, 'OTP sent to $email');
+
+      // Set userId and email in the provider before navigating
+      if (mounted) {
+        final emailOTPProvider = Provider.of<EmailOTPProvider>(
+          context,
+          listen: false,
+        );
+        emailOTPProvider.setUserIdAndEmail(userId, email);
+      }
+
+      // Navigate to OTP verification screen with isPasswordReset=true
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              EmailOTPVerifyScreen(email: email, isPasswordReset: true),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(dialogContext).pop();
+      SnackBarHelper.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -164,12 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          SnackBarHelper.showInfo(
-                            context,
-                            'Forgot password feature coming soon!',
-                          );
-                        },
+                        onPressed: _showForgotPasswordDialog,
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(

@@ -869,6 +869,31 @@ class SellerService {
     }
   }
 
+  /// Search for seller email by phone number in seller_request table
+  Future<String?> getEmailByPhoneNumber(String phoneNumber) async {
+    try {
+      print('🔍 Searching for email by phone: $phoneNumber');
+      final result = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [Query.equal('contact', phoneNumber), Query.limit(1)],
+      );
+      if (result.documents.isEmpty) {
+        print('❌ No seller found with phone: $phoneNumber');
+        return null;
+      }
+      final email = result.documents.first.data['email'] as String?;
+      print('✅ Found email: $email');
+      return email;
+    } on AppwriteException catch (e) {
+      print('Appwrite error searching by phone: ${e.message}');
+      throw _handleAppwriteException(e);
+    } catch (e) {
+      print('Error searching by phone: ${e.toString()}');
+      throw 'Failed to search seller: ${e.toString()}';
+    }
+  }
+
   String _handleAppwriteException(AppwriteException e) {
     switch (e.code) {
       case 401:

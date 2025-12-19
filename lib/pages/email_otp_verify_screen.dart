@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:truckmate/constants/colors.dart';
 import 'package:truckmate/pages/homepage.dart';
 import 'package:truckmate/pages/profile_screen.dart';
+import 'package:truckmate/pages/seller_dashboard.dart';
 import '../../providers/email_otp_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +16,12 @@ import '../../widgets/snackbar_helper.dart';
 
 class EmailOTPVerifyScreen extends StatefulWidget {
   final String email;
-  const EmailOTPVerifyScreen({Key? key, required this.email}) : super(key: key);
+  final bool isPasswordReset;
+  const EmailOTPVerifyScreen({
+    Key? key,
+    required this.email,
+    this.isPasswordReset = false,
+  }) : super(key: key);
   @override
   State<EmailOTPVerifyScreen> createState() => _EmailOTPVerifyScreenState();
 }
@@ -84,33 +91,46 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
     if (success) {
       SnackBarHelper.showSuccess(context, 'Email verified successfully!');
       if (emailOTPProvider.user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final startupChoice = prefs.getString('startup_choice');
-        if (startupChoice == 'seller') {
+        // If this is a password reset flow, go to seller dashboard
+        if (widget.isPasswordReset) {
           await authProvider.setUserAfterOTP(
             emailOTPProvider.user!,
             role: 'seller',
           );
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const TransporterRegistrationTabs(),
-            ),
+            MaterialPageRoute(builder: (_) => const SellerDashboard()),
             (route) => false,
           );
         } else {
-          await authProvider.setUserAfterOTP(emailOTPProvider.user!);
-          if (authProvider.user?.needsProfileCompletion() ?? true) {
+          // Original registration flow logic
+          final prefs = await SharedPreferences.getInstance();
+          final startupChoice = prefs.getString('startup_choice');
+          if (startupChoice == 'seller') {
+            await authProvider.setUserAfterOTP(
+              emailOTPProvider.user!,
+              role: 'seller',
+            );
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                builder: (_) => const ProfileCompletionScreen(),
+                builder: (_) => const TransporterRegistrationTabs(),
               ),
               (route) => false,
             );
           } else {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => HomeScreen()),
-              (route) => false,
-            );
+            await authProvider.setUserAfterOTP(emailOTPProvider.user!);
+            if (authProvider.user?.needsProfileCompletion() ?? true) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const ProfileCompletionScreen(),
+                ),
+                (route) => false,
+              );
+            } else {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => HomeScreen()),
+                (route) => false,
+              );
+            }
           }
         }
       }
@@ -333,6 +353,13 @@ class _EmailOTPVerifyScreenState extends State<EmailOTPVerifyScreen> {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         maxLength: 1,
+        autofillHints: const [AutofillHints.oneTimeCode],
+        enableSuggestions: false,
+        enableInteractiveSelection: false,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
         style: const TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
