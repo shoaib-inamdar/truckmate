@@ -10,6 +10,7 @@ import 'package:truckmate/providers/seller_provider.dart';
 import 'package:truckmate/widgets/loading_overlay.dart';
 import 'package:truckmate/widgets/snackbar_helper.dart';
 import 'package:truckmate/pages/seller_waiting_confirmation.dart';
+import 'package:truckmate/pages/pdf_viewer_page.dart';
 
 class BusinessRegistrationScreen extends StatefulWidget {
   const BusinessRegistrationScreen({Key? key}) : super(key: key);
@@ -37,6 +38,7 @@ class _BusinessRegistrationScreenState
   File? _gstFile;
   File? _panFile;
   File? _transportLicenseFile;
+  File? _shopPhotoFile;
 
   @override
   void initState() {
@@ -94,6 +96,9 @@ class _BusinessRegistrationScreenState
             case 'transport_license':
               _transportLicenseFile = file;
               break;
+            case 'shop_photo':
+              _shopPhotoFile = file;
+              break;
           }
         });
 
@@ -109,9 +114,15 @@ class _BusinessRegistrationScreenState
   Future<void> _viewFile(File? file, String fileName) async {
     if (file == null) return;
 
-    // For now, just show a message that file is selected
-    // You can implement a PDF viewer later if needed
-    SnackBarHelper.showSuccess(context, 'File $fileName selected');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerPage(
+          file: file,
+          fileName: fileName,
+        ),
+      ),
+    );
   }
 
   Future<void> _submitRegistration() async {
@@ -125,8 +136,8 @@ class _BusinessRegistrationScreenState
       return;
     }
 
-    if (_gstFile == null || _panFile == null || _transportLicenseFile == null) {
-      SnackBarHelper.showError(context, 'Please upload all required documents');
+    if (_panFile == null || _transportLicenseFile == null) {
+      SnackBarHelper.showError(context, 'Please upload all required documents (PAN and Transport License)');
       return;
     }
 
@@ -147,12 +158,18 @@ class _BusinessRegistrationScreenState
       String? gstDocId;
       String? panDocId;
       String? transportLicenseDocId;
+      String? shopPhotoId;
 
       try {
-        gstDocId = await sellerProvider.uploadDocument(
-          _gstFile!,
-          authProvider.user!.id,
-        );
+        // Upload GST only if file is selected (optional)
+        if (_gstFile != null) {
+          gstDocId = await sellerProvider.uploadDocument(
+            _gstFile!,
+            authProvider.user!.id,
+          );
+        }
+        
+        // Upload required documents
         panDocId = await sellerProvider.uploadDocument(
           _panFile!,
           authProvider.user!.id,
@@ -161,6 +178,14 @@ class _BusinessRegistrationScreenState
           _transportLicenseFile!,
           authProvider.user!.id,
         );
+        
+        // Upload shop photo if provided (optional)
+        if (_shopPhotoFile != null) {
+          shopPhotoId = await sellerProvider.uploadDocument(
+            _shopPhotoFile!,
+            authProvider.user!.id,
+          );
+        }
       } catch (e) {
         throw 'Error uploading documents: $e';
       }
@@ -178,6 +203,7 @@ class _BusinessRegistrationScreenState
         panDocumentId: panDocId,
         transportLicenseNo: _transportLicenseController.text.trim(),
         transportLicenseDocumentId: transportLicenseDocId,
+        shopPhotoId: shopPhotoId,
       );
 
       setState(() => _isLoading = false);
@@ -333,6 +359,10 @@ class _BusinessRegistrationScreenState
                   'transport_license',
                   _transportLicenseFile != null,
                 ),
+                const SizedBox(height: 24),
+                _buildSectionTitle('Visiting Carg / Shop Photo'),
+                const SizedBox(height: 16),
+                _buildShopPhotoField(),
                 const SizedBox(height: 32),
                 _buildSubmitButton(),
                 const SizedBox(height: 24),
@@ -501,14 +531,19 @@ class _BusinessRegistrationScreenState
                   maxLength: maxLength,
                   inputFormatters: inputFormatters,
                   validator: (value) {
+                    // GST is optional, so only validate if value is provided
+                    if (documentType == 'gst') {
+                      if (value != null && value.isNotEmpty && value.length != 15) {
+                        return 'GST must be 15 characters';
+                      }
+                      return null; // GST is optional
+                    }
+                    
                     if (value == null || value.isEmpty) {
                       return 'Required';
                     }
                     if (documentType == 'pan' && value.length != 10) {
                       return 'PAN must be 10 characters';
-                    }
-                    if (documentType == 'gst' && value.length != 15) {
-                      return 'GST must be 15 characters';
                     }
                     return null;
                   },
@@ -605,6 +640,64 @@ class _BusinessRegistrationScreenState
             letterSpacing: 0.5,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildShopPhotoField() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.secondary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Upload Shop Photo',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _shopPhotoFile != null
+                      ? 'Photo selected'
+                      : 'No photo selected',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _shopPhotoFile != null
+                        ? AppColors.success
+                        : AppColors.textLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _buildIconButton(
+            Icons.upload_file,
+            () => _pickFile('shop_photo'),
+            _shopPhotoFile != null ? AppColors.success : AppColors.primary,
+          ),
+          const SizedBox(width: 10),
+          _buildIconButton(
+            Icons.visibility_outlined,
+            _shopPhotoFile != null
+                ? () => _viewFile(_shopPhotoFile, 'Shop Photo')
+                : null,
+            _shopPhotoFile != null
+                ? AppColors.primary
+                : AppColors.secondary.withOpacity(0.3),
+          ),
+        ],
       ),
     );
   }

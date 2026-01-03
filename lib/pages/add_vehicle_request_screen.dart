@@ -253,7 +253,7 @@ class _AddVehicleRequestScreenState extends State<AddVehicleRequestScreen> {
             '${v['vehicle_number']}|'
             '${v['type_name']}|'
             '${v['vehicle_type']}|'
-            '${v['rc_book_no']}|'
+            '${v['rc_book_no']}||'
             '${v['max_weight']}|'
             '${v['rc_book_id']}|'
             '${v['front_image_id']}|'

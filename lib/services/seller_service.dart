@@ -121,6 +121,238 @@ class SellerService {
   }) async {
     try {
       print('Creating seller registration for user: $userId');
+
+      // First, check if there's already a pending or approved registration for this user
+      final existingDocs = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [Query.equal('user_id', userId)],
+      );
+
+      if (existingDocs.documents.isNotEmpty) {
+        print(
+          'Found ${existingDocs.documents.length} existing registration(s) for user',
+        );
+
+        List<String> rejectedDocIds = [];
+        List<String> pendingDocIds = [];
+        bool hasApproved = false;
+
+        // Check status of all existing registrations
+        for (var doc in existingDocs.documents) {
+          final status = doc.data['status'] ?? '';
+          if (status == 'approved') {
+            hasApproved = true;
+            print(
+              'User already has an approved registration with ID: ${doc.$id}',
+            );
+          } else if (status == 'pending') {
+            pendingDocIds.add(doc.$id);
+            print(
+              'User has a pending registration with ID: ${doc.$id} - will be replaced',
+            );
+          } else if (status == 'rejected') {
+            rejectedDocIds.add(doc.$id);
+          }
+        }
+
+        // Block if user has an approved registration
+        if (hasApproved) {
+          // Clean up the newly uploaded documents since we won't use them
+          if (panDocumentId != null && panDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(panDocumentId);
+            } catch (e) {
+              print('Could not clean up PAN document: $e');
+            }
+          }
+          if (licenseDocumentId != null && licenseDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(licenseDocumentId);
+            } catch (e) {
+              print('Could not clean up license document: $e');
+            }
+          }
+          if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(gstDocumentId);
+            } catch (e) {
+              print('Could not clean up GST document: $e');
+            }
+          }
+            for (var vehicle in vehicles) {
+              if (vehicle.documentId != null &&
+                  vehicle.documentId!.isNotEmpty) {
+                try {
+                  await deleteDocument(vehicle.documentId!);
+                } catch (e) {
+                  print('Could not clean up vehicle document: $e');
+                }
+              }
+              if (vehicle.rcDocumentId != null &&
+                  vehicle.rcDocumentId!.isNotEmpty) {
+                try {
+                  await deleteDocument(vehicle.rcDocumentId!);
+                } catch (e) {
+                  print('Could not clean up RC document: $e');
+                }
+              }
+              if (vehicle.frontImageId != null &&
+                  vehicle.frontImageId!.isNotEmpty) {
+                try {
+                  await deleteDocument(vehicle.frontImageId!);
+                } catch (e) {
+                  print('Could not clean up front image: $e');
+                }
+              }
+              if (vehicle.rearImageId != null &&
+                  vehicle.rearImageId!.isNotEmpty) {
+                try {
+                  await deleteDocument(vehicle.rearImageId!);
+                } catch (e) {
+                  print('Could not clean up rear image: $e');
+                }
+              }
+              if (vehicle.sideImageId != null &&
+                  vehicle.sideImageId!.isNotEmpty) {
+                try {
+                  await deleteDocument(vehicle.sideImageId!);
+                } catch (e) {
+                  print('Could not clean up side image: $e');
+                }
+              }
+            }
+          throw 'You already have an approved registration. Cannot create a new one.';
+        }
+
+        // Delete old pending registrations to allow new submission
+        if (pendingDocIds.isNotEmpty) {
+          print(
+            'Deleting ${pendingDocIds.length} pending registration(s) to allow new submission',
+          );
+          for (var docId in pendingDocIds) {
+            try {
+              // Clean up old documents from the pending registration
+              final oldDoc = await _databases.getDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              
+              // Delete old documents
+              final oldPanDocId = oldDoc.data['pan_document_id'] as String?;
+              final oldLicenseDocId = oldDoc.data['license_document_id'] as String?;
+              final oldGstDocId = oldDoc.data['gst_document_id'] as String?;
+              final oldVehicles = oldDoc.data['vehicles'] as List?;
+              
+              if (oldPanDocId != null && oldPanDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldPanDocId);
+                } catch (e) {
+                  print('Could not delete old PAN document: $e');
+                }
+              }
+              if (oldLicenseDocId != null && oldLicenseDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldLicenseDocId);
+                } catch (e) {
+                  print('Could not delete old license document: $e');
+                }
+              }
+              if (oldGstDocId != null && oldGstDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldGstDocId);
+                } catch (e) {
+                  print('Could not delete old GST document: $e');
+                }
+              }
+              
+              // Delete old vehicle documents
+              if (oldVehicles != null) {
+                for (var vehicleStr in oldVehicles) {
+                  if (vehicleStr is String) {
+                    final parts = vehicleStr.split('|');
+                    // parts[5] = documentId (old combined image, may be empty)
+                    // parts[6] = rcDocumentId
+                    // parts[7] = frontImageId
+                    // parts[8] = rearImageId
+                    // parts[9] = sideImageId
+                    if (parts.length > 5 && parts[5].isNotEmpty) {
+                      try {
+                        await deleteDocument(parts[5]); // Old combined image
+                      } catch (e) {
+                        print('Could not delete old vehicle document: $e');
+                      }
+                    }
+                    if (parts.length > 6 && parts[6].isNotEmpty) {
+                      try {
+                        await deleteDocument(parts[6]); // RC document
+                      } catch (e) {
+                        print('Could not delete old RC document: $e');
+                      }
+                    }
+                    if (parts.length > 7 && parts[7].isNotEmpty) {
+                      try {
+                        await deleteDocument(parts[7]); // Front image
+                      } catch (e) {
+                        print('Could not delete old front image: $e');
+                      }
+                    }
+                    if (parts.length > 8 && parts[8].isNotEmpty) {
+                      try {
+                        await deleteDocument(parts[8]); // Rear image
+                      } catch (e) {
+                        print('Could not delete old rear image: $e');
+                      }
+                    }
+                    if (parts.length > 9 && parts[9].isNotEmpty) {
+                      try {
+                        await deleteDocument(parts[9]); // Side image
+                      } catch (e) {
+                        print('Could not delete old side image: $e');
+                      }
+                    }
+                  }
+                }
+              }
+              
+              // Delete the old registration document
+              await _databases.deleteDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              print('Deleted pending registration: $docId');
+            } catch (deleteError) {
+              print(
+                'Could not delete pending registration $docId: $deleteError',
+              );
+            }
+          }
+        }
+
+        // Try to delete old rejected registrations to free up space
+        if (rejectedDocIds.isNotEmpty) {
+          print(
+            'Attempting to clean up ${rejectedDocIds.length} rejected registration(s)',
+          );
+          for (var docId in rejectedDocIds) {
+            try {
+              await _databases.deleteDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              print('Deleted rejected registration: $docId');
+            } catch (deleteError) {
+              print(
+                'Could not delete rejected registration $docId: $deleteError',
+              );
+            }
+          }
+        }
+      }
+
       final username = _generateUsername(name);
       final password = _generatePassword();
       print(
@@ -132,8 +364,8 @@ class SellerService {
           v.vehicleType,
           v.type,
           v.rcBookNo,
-          v.maxPassWeight,
-          v.documentId ?? '',
+          v.maxPassWeight, // Now stores only the number without unit
+          '', // documentId (empty, no longer using combined image)
           v.rcDocumentId ?? '',
           v.frontImageId ?? '',
           v.rearImageId ?? '',
@@ -175,44 +407,215 @@ class SellerService {
         data['rc_document_id_2'] = vehicles[1].rcDocumentId ?? '';
       }
       print('Seller data: $data');
-      final doc = await _databases.createDocument(
-        databaseId: AppwriteConfig.databaseId,
-        collectionId: AppwriteConfig.sellerRequestsCollectionId,
-        documentId: ID.unique(),
-        data: data,
-        permissions: [
-          Permission.read(Role.user(userId)),
-          Permission.update(Role.user(userId)),
-          Permission.delete(Role.user(userId)),
-        ],
-      );
-      print('Seller registration created successfully: ${doc.$id}');
-      return _documentToSellerModel(doc);
+
+      // Retry logic for document creation in case of ID conflicts
+      int maxRetries = 5;
+      models.Document? doc;
+      String? lastAttemptedId;
+
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Add a small random delay before each attempt to avoid ID collisions
+          if (attempt > 0) {
+            final randomDelay = 100 + (attempt * 200);
+            await Future.delayed(Duration(milliseconds: randomDelay));
+          }
+
+          // On the last attempt, try using a custom ID based on userId + timestamp
+          String documentId;
+          if (attempt == maxRetries - 1) {
+            documentId = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
+            print('Using custom document ID for final attempt: $documentId');
+          } else {
+            documentId = ID.unique();
+          }
+          lastAttemptedId = documentId;
+
+          doc = await _databases.createDocument(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: AppwriteConfig.sellerRequestsCollectionId,
+            documentId: documentId,
+            data: data,
+            permissions: [
+              Permission.read(Role.user(userId)),
+              Permission.update(Role.user(userId)),
+              Permission.delete(Role.user(userId)),
+            ],
+          );
+          print('Seller registration created successfully: ${doc.$id}');
+          break; // Success, exit retry loop
+        } on AppwriteException catch (retryError) {
+          if (retryError.code == 409) {
+            if (attempt < maxRetries - 1) {
+              print(
+                'Document ID conflict on attempt ${attempt + 1}, retrying... (${maxRetries - attempt - 1} attempts remaining)',
+              );
+
+              // Try to delete the conflicting document if it exists
+              if (lastAttemptedId != null) {
+                try {
+                  await _databases.deleteDocument(
+                    databaseId: AppwriteConfig.databaseId,
+                    collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                    documentId: lastAttemptedId,
+                  );
+                  print('Deleted orphaned document: $lastAttemptedId');
+                } catch (deleteError) {
+                  print('Could not delete conflicting document: $deleteError');
+                }
+              }
+
+              // Exponential backoff: 300ms, 600ms, 1200ms, 2400ms
+              await Future.delayed(
+                Duration(milliseconds: 300 * (1 << attempt)),
+              );
+              continue; // Retry with new ID
+            } else {
+              // Last attempt failed - provide detailed error
+              print(
+                'Failed to create document after $maxRetries attempts due to persistent ID conflicts',
+              );
+              print(
+                'This may indicate orphaned documents in the database. Please contact support.',
+              );
+            }
+          }
+          rethrow; // If it's not a conflict or last attempt, throw
+        }
+      }
+
+      if (doc == null) {
+        throw 'Failed to create seller registration after $maxRetries attempts';
+      }
+
+      // Document created successfully, now convert to model
+      // If this fails, don't delete documents since they're already linked to the document
+      try {
+        return _documentToSellerModel(doc);
+      } catch (modelError) {
+        print('Error converting document to model: $modelError');
+        // Document exists in database, so don't delete uploaded documents
+        // Just rethrow the error
+        rethrow;
+      }
     } on AppwriteException catch (e) {
       print(
         'Appwrite error in createSellerRegistration: Code ${e.code}, Message: ${e.message}, Response: ${e.response}',
       );
+
+      // Clean up uploaded documents on failure
       if (panDocumentId != null && panDocumentId.isNotEmpty) {
-        await deleteDocument(panDocumentId);
+        try {
+          await deleteDocument(panDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up PAN document: $cleanupError');
+        }
       }
       if (licenseDocumentId != null && licenseDocumentId.isNotEmpty) {
-        await deleteDocument(licenseDocumentId);
+        try {
+          await deleteDocument(licenseDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up license document: $cleanupError');
+        }
       }
       if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
-        await deleteDocument(gstDocumentId);
-      }
-      for (var vehicle in vehicles) {
-        if (vehicle.documentId != null && vehicle.documentId!.isNotEmpty) {
-          await deleteDocument(vehicle.documentId!);
-        }
-        if (vehicle.rcDocumentId != null && vehicle.rcDocumentId!.isNotEmpty) {
-          await deleteDocument(vehicle.rcDocumentId!);
+        try {
+          await deleteDocument(gstDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up GST document: $cleanupError');
         }
       }
+          for (var vehicle in vehicles) {
+            if (vehicle.documentId != null && vehicle.documentId!.isNotEmpty) {
+              try {
+                await deleteDocument(vehicle.documentId!);
+              } catch (cleanupError) {
+                print('Error cleaning up vehicle document: $cleanupError');
+              }
+            }
+            if (vehicle.rcDocumentId != null && vehicle.rcDocumentId!.isNotEmpty) {
+              try {
+                await deleteDocument(vehicle.rcDocumentId!);
+              } catch (cleanupError) {
+                print('Error cleaning up RC document: $cleanupError');
+              }
+            }
+            if (vehicle.frontImageId != null && vehicle.frontImageId!.isNotEmpty) {
+              try {
+                await deleteDocument(vehicle.frontImageId!);
+              } catch (cleanupError) {
+                print('Error cleaning up front image: $cleanupError');
+              }
+            }
+            if (vehicle.rearImageId != null && vehicle.rearImageId!.isNotEmpty) {
+              try {
+                await deleteDocument(vehicle.rearImageId!);
+              } catch (cleanupError) {
+                print('Error cleaning up rear image: $cleanupError');
+              }
+            }
+            if (vehicle.sideImageId != null && vehicle.sideImageId!.isNotEmpty) {
+              try {
+                await deleteDocument(vehicle.sideImageId!);
+              } catch (cleanupError) {
+                print('Error cleaning up side image: $cleanupError');
+              }
+            }
+          }
       throw _handleAppwriteException(e);
     } catch (e) {
       print('General error in createSellerRegistration: ${e.toString()}');
-      throw 'Failed to create seller registration: ${e.toString()}';
+
+      // Don't clean up documents if user already has a registration
+      // (they may need these documents for their existing registration)
+      final errorMessage = e.toString();
+      final isExistingRegistrationError = errorMessage.contains('already have');
+
+      if (!isExistingRegistrationError) {
+        // Only clean up uploaded documents if it's not an "already registered" error
+        if (panDocumentId != null && panDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(panDocumentId);
+          } catch (cleanupError) {
+            print('Error cleaning up PAN document: $cleanupError');
+          }
+        }
+        if (licenseDocumentId != null && licenseDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(licenseDocumentId);
+          } catch (cleanupError) {
+            print('Error cleaning up license document: $cleanupError');
+          }
+        }
+        if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(gstDocumentId);
+          } catch (cleanupError) {
+            print('Error cleaning up GST document: $cleanupError');
+          }
+        }
+        for (var vehicle in vehicles) {
+          if (vehicle.documentId != null && vehicle.documentId!.isNotEmpty) {
+            try {
+              await deleteDocument(vehicle.documentId!);
+            } catch (cleanupError) {
+              print('Error cleaning up vehicle document: $cleanupError');
+            }
+          }
+          if (vehicle.rcDocumentId != null &&
+              vehicle.rcDocumentId!.isNotEmpty) {
+            try {
+              await deleteDocument(vehicle.rcDocumentId!);
+            } catch (cleanupError) {
+              print('Error cleaning up RC document: $cleanupError');
+            }
+          }
+        }
+      }
+
+      throw e is String
+          ? e
+          : 'Failed to create seller registration: ${e.toString()}';
     }
   }
 
@@ -228,9 +631,166 @@ class SellerService {
     String? panDocumentId,
     required String transportLicenseNo,
     String? transportLicenseDocumentId,
+    String? shopPhotoId,
   }) async {
     try {
       print('Creating business registration for user: $userId');
+
+      // First, check if there's already a pending or approved registration for this user
+      final existingDocs = await _databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: AppwriteConfig.sellerRequestsCollectionId,
+        queries: [Query.equal('user_id', userId)],
+      );
+
+      if (existingDocs.documents.isNotEmpty) {
+        print(
+          'Found ${existingDocs.documents.length} existing registration(s) for user',
+        );
+
+        List<String> rejectedDocIds = [];
+        List<String> pendingDocIds = [];
+        bool hasApproved = false;
+
+        // Check status of all existing registrations
+        for (var doc in existingDocs.documents) {
+          final status = doc.data['status'] ?? '';
+          if (status == 'approved') {
+            hasApproved = true;
+            print(
+              'User already has an approved business registration with ID: ${doc.$id}',
+            );
+          } else if (status == 'pending') {
+            pendingDocIds.add(doc.$id);
+            print(
+              'User has a pending business registration with ID: ${doc.$id} - will be replaced',
+            );
+          } else if (status == 'rejected') {
+            rejectedDocIds.add(doc.$id);
+          }
+        }
+
+        // Block if user has an approved registration
+        if (hasApproved) {
+          // Clean up the newly uploaded documents since we won't use them
+          if (panDocumentId != null && panDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(panDocumentId);
+            } catch (e) {
+              print('Could not clean up PAN document: $e');
+            }
+          }
+          if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(gstDocumentId);
+            } catch (e) {
+              print('Could not clean up GST document: $e');
+            }
+          }
+          if (transportLicenseDocumentId != null &&
+              transportLicenseDocumentId.isNotEmpty) {
+            try {
+              await deleteDocument(transportLicenseDocumentId);
+            } catch (e) {
+              print('Could not clean up transport license document: $e');
+            }
+          }
+          if (shopPhotoId != null && shopPhotoId.isNotEmpty) {
+            try {
+              await deleteDocument(shopPhotoId);
+            } catch (e) {
+              print('Could not clean up shop photo: $e');
+            }
+          }
+          throw 'You already have an approved business registration. Cannot create a new one.';
+        }
+
+        // Delete old pending registrations to allow new submission
+        if (pendingDocIds.isNotEmpty) {
+          print(
+            'Deleting ${pendingDocIds.length} pending business registration(s) to allow new submission',
+          );
+          for (var docId in pendingDocIds) {
+            try {
+              // Clean up old documents from the pending registration
+              final oldDoc = await _databases.getDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              
+              // Delete old documents
+              final oldPanDocId = oldDoc.data['pan_document_id'] as String?;
+              final oldLicenseDocId = oldDoc.data['license_document_id'] as String?;
+              final oldGstDocId = oldDoc.data['gst_document_id'] as String?;
+              final oldShopPhotoId = oldDoc.data['shop_photo_id'] as String?;
+              
+              if (oldPanDocId != null && oldPanDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldPanDocId);
+                } catch (e) {
+                  print('Could not delete old PAN document: $e');
+                }
+              }
+              if (oldLicenseDocId != null && oldLicenseDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldLicenseDocId);
+                } catch (e) {
+                  print('Could not delete old license document: $e');
+                }
+              }
+              if (oldGstDocId != null && oldGstDocId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldGstDocId);
+                } catch (e) {
+                  print('Could not delete old GST document: $e');
+                }
+              }
+              if (oldShopPhotoId != null && oldShopPhotoId.isNotEmpty) {
+                try {
+                  await deleteDocument(oldShopPhotoId);
+                } catch (e) {
+                  print('Could not delete old shop photo: $e');
+                }
+              }
+              
+              // Delete the old registration document
+              await _databases.deleteDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              print('Deleted pending business registration: $docId');
+            } catch (deleteError) {
+              print(
+                'Could not delete pending business registration $docId: $deleteError',
+              );
+            }
+          }
+        }
+
+        // Try to delete old rejected registrations to free up space
+        if (rejectedDocIds.isNotEmpty) {
+          print(
+            'Attempting to clean up ${rejectedDocIds.length} rejected registration(s)',
+          );
+          for (var docId in rejectedDocIds) {
+            try {
+              await _databases.deleteDocument(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                documentId: docId,
+              );
+              print('Deleted rejected registration: $docId');
+            } catch (deleteError) {
+              print(
+                'Could not delete rejected registration $docId: $deleteError',
+              );
+            }
+          }
+        }
+      }
+
       final username = _generateUsername(companyName);
       final password = _generatePassword();
       print(
@@ -251,6 +811,7 @@ class SellerService {
         'license_document_id': transportLicenseDocumentId ?? '',
         'gst_no': gstNo,
         'gst_document_id': gstDocumentId ?? '',
+        'shop_photo_id': shopPhotoId ?? '',
         'selected_vehicle_types': [],
         'vehicles': [],
         'vehicle_count': '0',
@@ -259,37 +820,179 @@ class SellerService {
       };
 
       print('Business data: $data');
-      final doc = await _databases.createDocument(
-        databaseId: AppwriteConfig.databaseId,
-        collectionId: AppwriteConfig.sellerRequestsCollectionId,
-        documentId: ID.unique(),
-        data: data,
-        permissions: [
-          Permission.read(Role.user(userId)),
-          Permission.update(Role.user(userId)),
-          Permission.delete(Role.user(userId)),
-        ],
-      );
-      print('Business registration created successfully: ${doc.$id}');
-      return _documentToSellerModel(doc);
+
+      // Retry logic for document creation in case of ID conflicts
+      int maxRetries = 5;
+      models.Document? doc;
+      String? lastAttemptedId;
+
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Add a small random delay before each attempt to avoid ID collisions
+          if (attempt > 0) {
+            final randomDelay = 100 + (attempt * 200);
+            await Future.delayed(Duration(milliseconds: randomDelay));
+          }
+
+          // On the last attempt, try using a custom ID based on userId + timestamp
+          String documentId;
+          if (attempt == maxRetries - 1) {
+            documentId = '${userId}_${DateTime.now().millisecondsSinceEpoch}';
+            print('Using custom document ID for final attempt: $documentId');
+          } else {
+            documentId = ID.unique();
+          }
+          lastAttemptedId = documentId;
+
+          doc = await _databases.createDocument(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: AppwriteConfig.sellerRequestsCollectionId,
+            documentId: documentId,
+            data: data,
+            permissions: [
+              Permission.read(Role.user(userId)),
+              Permission.update(Role.user(userId)),
+              Permission.delete(Role.user(userId)),
+            ],
+          );
+          print('Business registration created successfully: ${doc.$id}');
+          break; // Success, exit retry loop
+        } on AppwriteException catch (retryError) {
+          if (retryError.code == 409) {
+            if (attempt < maxRetries - 1) {
+              print(
+                'Document ID conflict on attempt ${attempt + 1}, retrying... (${maxRetries - attempt - 1} attempts remaining)',
+              );
+
+              // Try to delete the conflicting document if it exists
+              if (lastAttemptedId != null) {
+                try {
+                  await _databases.deleteDocument(
+                    databaseId: AppwriteConfig.databaseId,
+                    collectionId: AppwriteConfig.sellerRequestsCollectionId,
+                    documentId: lastAttemptedId,
+                  );
+                  print('Deleted orphaned document: $lastAttemptedId');
+                } catch (deleteError) {
+                  print('Could not delete conflicting document: $deleteError');
+                }
+              }
+
+              // Exponential backoff: 300ms, 600ms, 1200ms, 2400ms
+              await Future.delayed(
+                Duration(milliseconds: 300 * (1 << attempt)),
+              );
+              continue; // Retry with new ID
+            } else {
+              // Last attempt failed - provide detailed error
+              print(
+                'Failed to create document after $maxRetries attempts due to persistent ID conflicts',
+              );
+              print(
+                'This may indicate orphaned documents in the database. Please contact support.',
+              );
+            }
+          }
+          rethrow; // If it's not a conflict or last attempt, throw
+        }
+      }
+
+      if (doc == null) {
+        throw 'Failed to create business registration after $maxRetries attempts';
+      }
+
+      // Document created successfully, now convert to model
+      // If this fails, don't delete documents since they're already linked to the document
+      try {
+        return _documentToSellerModel(doc);
+      } catch (modelError) {
+        print('Error converting document to model: $modelError');
+        // Document exists in database, so don't delete uploaded documents
+        // Just rethrow the error
+        rethrow;
+      }
     } on AppwriteException catch (e) {
       print(
         'Appwrite error in createBusinessRegistration: Code ${e.code}, Message: ${e.message}, Response: ${e.response}',
       );
+
+      // Clean up uploaded documents on failure
       if (panDocumentId != null && panDocumentId.isNotEmpty) {
-        await deleteDocument(panDocumentId);
+        try {
+          await deleteDocument(panDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up PAN document: $cleanupError');
+        }
       }
       if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
-        await deleteDocument(gstDocumentId);
+        try {
+          await deleteDocument(gstDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up GST document: $cleanupError');
+        }
       }
       if (transportLicenseDocumentId != null &&
           transportLicenseDocumentId.isNotEmpty) {
-        await deleteDocument(transportLicenseDocumentId);
+        try {
+          await deleteDocument(transportLicenseDocumentId);
+        } catch (cleanupError) {
+          print('Error cleaning up transport license document: $cleanupError');
+        }
+      }
+      if (shopPhotoId != null && shopPhotoId.isNotEmpty) {
+        try {
+          await deleteDocument(shopPhotoId);
+        } catch (cleanupError) {
+          print('Error cleaning up shop photo: $cleanupError');
+        }
       }
       throw _handleAppwriteException(e);
     } catch (e) {
       print('General error in createBusinessRegistration: ${e.toString()}');
-      throw 'Failed to create business registration: ${e.toString()}';
+
+      // Don't clean up documents if user already has a registration
+      // (they may need these documents for their existing registration)
+      final errorMessage = e.toString();
+      final isExistingRegistrationError = errorMessage.contains('already have');
+
+      if (!isExistingRegistrationError) {
+        // Only clean up uploaded documents if it's not an "already registered" error
+        if (panDocumentId != null && panDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(panDocumentId);
+          } catch (cleanupError) {
+            print('Error cleaning up PAN document: $cleanupError');
+          }
+        }
+        if (gstDocumentId != null && gstDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(gstDocumentId);
+          } catch (cleanupError) {
+            print('Error cleaning up GST document: $cleanupError');
+          }
+        }
+        if (transportLicenseDocumentId != null &&
+            transportLicenseDocumentId.isNotEmpty) {
+          try {
+            await deleteDocument(transportLicenseDocumentId);
+          } catch (cleanupError) {
+            print(
+              'Error cleaning up transport license document: $cleanupError',
+            );
+          }
+        }
+        if (shopPhotoId != null && shopPhotoId.isNotEmpty) {
+          try {
+            await deleteDocument(shopPhotoId);
+          } catch (cleanupError) {
+            print('Error cleaning up shop photo: $cleanupError');
+          }
+        }
+      }
+
+      throw e is String
+          ? e
+          : 'Failed to create business registration: ${e.toString()}';
     }
   }
 
@@ -507,7 +1210,7 @@ class SellerService {
       final email = doc.data['email'] as String?;
       final transporterType = doc.data['transporter_type'] as String?;
       final vehicles = doc.data['vehicles'];
-      final vehicleCount = doc.data['vehicle_count'];
+      final vehicleCount = _parseVehicleCount(doc.data['vehicle_count']);
       print(
         'Fetched - username: $username, email: $email, transporter_type: $transporterType, password: ${password?.replaceAll(RegExp(r'.'), '*')}',
       );
@@ -521,7 +1224,7 @@ class SellerService {
           'email': email,
           'transporter_type': transporterType ?? 'individual',
           'vehicles': vehicles ?? [],
-          'vehicle_count': vehicleCount?.toString() ?? '0',
+          'vehicle_count': vehicleCount.toString(),
         };
       }
       print(
@@ -619,7 +1322,7 @@ class SellerService {
         doc.data['selected_vehicle_types'] ?? [],
       ),
       vehicles: vehiclesList,
-      vehicleCount: doc.data['vehicle_count'] ?? 0,
+      vehicleCount: _parseVehicleCount(doc.data['vehicle_count']),
       createdAt: DateTime.parse(doc.$createdAt),
       status: doc.data['status'] ?? 'pending',
       availability: doc.data['availability'] ?? 'free',
@@ -929,5 +1632,14 @@ class SellerService {
       buffer.write(characters[(random + i) % characters.length]);
     }
     return buffer.toString();
+  }
+
+  int _parseVehicleCount(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+    return 0;
   }
 }

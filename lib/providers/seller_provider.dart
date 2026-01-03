@@ -87,6 +87,7 @@ class SellerProvider with ChangeNotifier {
     String? panDocumentId,
     required String transportLicenseNo,
     String? transportLicenseDocumentId,
+    String? shopPhotoId,
   }) async {
     try {
       _status = SellerStatus.loading;
@@ -108,6 +109,7 @@ class SellerProvider with ChangeNotifier {
         panDocumentId: panDocumentId,
         transportLicenseNo: transportLicenseNo,
         transportLicenseDocumentId: transportLicenseDocumentId,
+        shopPhotoId: shopPhotoId,
       );
       _status = SellerStatus.success;
       notifyListeners();

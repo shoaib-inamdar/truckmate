@@ -129,11 +129,10 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
         _contactController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _panController.text.trim().isEmpty ||
-        _licenseController.text.trim().isEmpty ||
-        _gstController.text.trim().isEmpty) {
+        _licenseController.text.trim().isEmpty) {
       return false;
     }
-    if (_panFile == null || _licenseFile == null || _gstFile == null) {
+    if (_panFile == null || _licenseFile == null) {
       return false;
     }
     if (_totalVehicles == 0 || _totalVehicles > _maxTotalVehicles) {
@@ -543,7 +542,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
       }
       List<VehicleInfo> vehicleInfoList = [];
       for (int i = 0; i < _vehicles.length; i++) {
-        String? combinedImageId;
+        String? frontImageId;
+        String? rearImageId;
         try {
           print(
             'Processing vehicle $i with number: ${_vehicles[i].controller.text.trim()}',
@@ -560,31 +560,47 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
             );
             return;
           }
-          final combinedImage = await _combineVehicleImages(
-            _vehicles[i].frontImage,
-            _vehicles[i].rearImage,
-            i,
-            authProvider.user!.id,
-          );
-          if (combinedImage != null) {
-            print('Uploading combined image for vehicle $i...');
-            combinedImageId = await sellerProvider.uploadDocument(
-              combinedImage,
-              'vehicle_${i}_combined_${authProvider.user!.id}.jpg',
-            );
-            print(
-              'Successfully uploaded combined image for vehicle $i. ID: $combinedImageId',
-            );
-            await combinedImage.delete();
-          } else {
-            print(
-              'Warning: Combined image is null for vehicle $i. This may indicate missing or invalid images.',
-            );
-            SnackBarHelper.showError(
-              context,
-              'Failed to combine images for vehicle ${i + 1}. Please check image formats.',
-            );
-            return;
+
+          // Upload front image separately
+          if (_vehicles[i].frontImage != null) {
+            try {
+              print('Uploading front image for vehicle $i...');
+              frontImageId = await sellerProvider.uploadDocument(
+                _vehicles[i].frontImage!,
+                'vehicle_${i}_front_${authProvider.user!.id}.${_vehicles[i].frontImage!.path.split('.').last}',
+              );
+              print(
+                'Successfully uploaded front image for vehicle $i. ID: $frontImageId',
+              );
+            } catch (e) {
+              print('Error uploading front image for vehicle $i: $e');
+              SnackBarHelper.showError(
+                context,
+                'Error uploading front image for vehicle ${i + 1}: $e',
+              );
+              rethrow;
+            }
+          }
+
+          // Upload rear image separately
+          if (_vehicles[i].rearImage != null) {
+            try {
+              print('Uploading rear image for vehicle $i...');
+              rearImageId = await sellerProvider.uploadDocument(
+                _vehicles[i].rearImage!,
+                'vehicle_${i}_rear_${authProvider.user!.id}.${_vehicles[i].rearImage!.path.split('.').last}',
+              );
+              print(
+                'Successfully uploaded rear image for vehicle $i. ID: $rearImageId',
+              );
+            } catch (e) {
+              print('Error uploading rear image for vehicle $i: $e');
+              SnackBarHelper.showError(
+                context,
+                'Error uploading rear image for vehicle ${i + 1}: $e',
+              );
+              rethrow;
+            }
           }
         } catch (e) {
           print('Error processing vehicle $i images: $e');
@@ -616,18 +632,21 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
           }
         }
 
+        // Extract weight number only (without unit)
+        final weightText = _vehicles[i].maxWeightController.text.trim();
+        final weightNumber = weightText.isEmpty ? '0' : weightText;
+
         vehicleInfoList.add(
           VehicleInfo(
             vehicleNumber: _vehicles[i].controller.text.trim(),
             vehicleType: _vehicles[i].typeName,
             type: _vehicles[i].type,
             rcBookNo: _vehicles[i].rcBookController.text.trim(),
-            maxPassWeight:
-                '${_vehicles[i].maxWeightController.text.trim()} ${_vehicles[i].weightUnit}',
-            documentId: combinedImageId,
+            maxPassWeight: weightNumber,
+            documentId: null, // No longer using combined image
             rcDocumentId: rcDocId,
-            frontImageId: null,
-            rearImageId: null,
+            frontImageId: frontImageId,
+            rearImageId: rearImageId,
             sideImageId: null,
           ),
         );
@@ -823,8 +842,8 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                             ),
                             const SizedBox(height: 16),
                             _buildDocumentField(
-                              'GST No :',
-                              'Enter GST number',
+                              'GST No (Optional):',
+                              'Enter GST number (optional)',
                               _gstController,
                               'gst',
                               _gstFile != null,
@@ -1057,14 +1076,23 @@ class _SellerRegistrationScreenState extends State<SellerRegistrationScreen> {
                   maxLength: maxLength,
                   inputFormatters: inputFormatters,
                   validator: (value) {
+                    // GST is optional, so skip validation if empty
+                    if (documentType == 'gst') {
+                      if (value == null || value.isEmpty) {
+                        return null; // GST is optional
+                      }
+                      if (value.length != 15) {
+                        return 'GST must be 15 characters';
+                      }
+                      return null;
+                    }
+                    
+                    // For other documents (PAN, License), they are required
                     if (value == null || value.isEmpty) {
                       return 'Required';
                     }
                     if (documentType == 'pan' && value.length != 10) {
                       return 'PAN must be 10 characters';
-                    }
-                    if (documentType == 'gst' && value.length != 15) {
-                      return 'GST must be 15 characters';
                     }
                     return null;
                   },

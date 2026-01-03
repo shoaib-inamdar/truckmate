@@ -128,9 +128,10 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
               'vehicle_type': parts.length > 2 ? parts[2] : 'closed',
               'rc_book_no': parts.length > 3 ? parts[3] : '',
               'max_weight': parts.length > 4 ? parts[4] : '',
-              'rc_book_id': parts.length > 5 ? parts[5] : '',
-              'front_image_id': parts.length > 6 ? parts[6] : '',
-              'rear_image_id': parts.length > 7 ? parts[7] : '',
+              // parts[5] is empty in the format
+              'rc_book_id': parts.length > 6 ? parts[6] : '',
+              'front_image_id': parts.length > 7 ? parts[7] : '',
+              'rear_image_id': parts.length > 8 ? parts[8] : '',
             });
           }
         }
@@ -1070,7 +1071,119 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
   Widget _buildDocumentButton(String label, String documentId) {
     return InkWell(
       onTap: () {
-        SnackBarHelper.showInfo(context, 'Document viewing coming soon');
+        if (documentId.isEmpty) {
+          SnackBarHelper.showError(context, 'Document not available');
+          return;
+        }
+        
+        // Get the document URL
+        final documentUrl = _sellerService.getFileView(documentId);
+        
+        // Show image in a dialog
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.dark,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.image,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          documentUrl,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  AppColors.primary,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 48,
+                                    color: AppColors.danger,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Failed to load image',
+                                    style: TextStyle(
+                                      color: AppColors.textDark,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1082,7 +1195,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.description, color: AppColors.success, size: 16),
+            Icon(Icons.image, color: AppColors.success, size: 16),
             const SizedBox(width: 6),
             Text(
               label,

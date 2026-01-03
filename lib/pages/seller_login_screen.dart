@@ -372,6 +372,15 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                                     ],
                                   ),
                                 ),
+                                SizedBox(height:20),
+                                Text(
+                                  "Change your password as soon as you login for the first time",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.danger,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
